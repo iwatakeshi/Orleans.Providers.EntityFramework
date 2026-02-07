@@ -98,16 +98,18 @@ namespace Orleans.Providers.EntityFramework.Conventions
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
 
-            Func<TContext, Guid, Task<TEntity>> guidQuery = null;
-            Func<TContext, Guid, string, Task<TEntity>> guidCompoundQuery = null;
-            Func<TContext, long, Task<TEntity>> longQuery = null;
-            Func<TContext, long, string, Task<TEntity>> longCompoundQuery = null;
-            Func<TContext, string, Task<TEntity>> stringQuery = null;
+            // Determine entity key type at setup time to avoid mismatched key extraction at runtime.
+            Type keyType = GetEntityKeyType<TEntity>(options);
 
-            return (TContext context, GrainId grainId) =>
+            if (keyType == typeof(Guid))
             {
-                if (GrainIdKeyExtensions.TryGetGuidKey(grainId, out Guid guidKey, out string guidKeyExt))
+                Func<TContext, Guid, Task<TEntity>> guidQuery = null;
+                Func<TContext, Guid, string, Task<TEntity>> guidCompoundQuery = null;
+
+                return (TContext context, GrainId grainId) =>
                 {
+                    GrainIdKeyExtensions.TryGetGuidKey(grainId, out Guid guidKey, out string guidKeyExt);
+
                     if (!string.IsNullOrWhiteSpace(guidKeyExt))
                     {
                         EnsureKeyExtConfigured(options);
@@ -117,10 +119,18 @@ namespace Orleans.Providers.EntityFramework.Conventions
 
                     guidQuery ??= ExpressionHelper.CreateQuery<TContext, TState, TEntity, Guid>(options);
                     return guidQuery(context, guidKey);
-                }
+                };
+            }
 
-                if (GrainIdKeyExtensions.TryGetIntegerKey(grainId, out long longKey, out string longKeyExt))
+            if (keyType == typeof(long))
+            {
+                Func<TContext, long, Task<TEntity>> longQuery = null;
+                Func<TContext, long, string, Task<TEntity>> longCompoundQuery = null;
+
+                return (TContext context, GrainId grainId) =>
                 {
+                    GrainIdKeyExtensions.TryGetIntegerKey(grainId, out long longKey, out string longKeyExt);
+
                     if (!string.IsNullOrWhiteSpace(longKeyExt))
                     {
                         EnsureKeyExtConfigured(options);
@@ -130,8 +140,14 @@ namespace Orleans.Providers.EntityFramework.Conventions
 
                     longQuery ??= ExpressionHelper.CreateQuery<TContext, TState, TEntity, long>(options);
                     return longQuery(context, longKey);
-                }
+                };
+            }
 
+            // String key
+            Func<TContext, string, Task<TEntity>> stringQuery = null;
+
+            return (TContext context, GrainId grainId) =>
+            {
                 string stringKey = GetStringKey(grainId);
                 stringQuery ??= ExpressionHelper.CreateQuery<TContext, TState, TEntity, string>(options);
                 return stringQuery(context, stringKey);
@@ -146,16 +162,18 @@ namespace Orleans.Providers.EntityFramework.Conventions
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
 
-            Func<TContext, Guid, Task<TEntity>> guidQuery = null;
-            Func<TContext, Guid, string, Task<TEntity>> guidCompoundQuery = null;
-            Func<TContext, long, Task<TEntity>> longQuery = null;
-            Func<TContext, long, string, Task<TEntity>> longCompoundQuery = null;
-            Func<TContext, string, Task<TEntity>> stringQuery = null;
+            // Determine entity key type at setup time to avoid mismatched key extraction at runtime.
+            Type keyType = GetEntityKeyType<TEntity>(options);
 
-            return (TContext context, GrainId grainId) =>
+            if (keyType == typeof(Guid))
             {
-                if (GrainIdKeyExtensions.TryGetGuidKey(grainId, out Guid guidKey, out string guidKeyExt))
+                Func<TContext, Guid, Task<TEntity>> guidQuery = null;
+                Func<TContext, Guid, string, Task<TEntity>> guidCompoundQuery = null;
+
+                return (TContext context, GrainId grainId) =>
                 {
+                    GrainIdKeyExtensions.TryGetGuidKey(grainId, out Guid guidKey, out string guidKeyExt);
+
                     if (!string.IsNullOrWhiteSpace(guidKeyExt))
                     {
                         EnsureKeyExtConfigured(options);
@@ -165,10 +183,18 @@ namespace Orleans.Providers.EntityFramework.Conventions
 
                     guidQuery ??= ExpressionHelper.CreateCompiledQuery<TContext, TState, TEntity, Guid>(options);
                     return guidQuery(context, guidKey);
-                }
+                };
+            }
 
-                if (GrainIdKeyExtensions.TryGetIntegerKey(grainId, out long longKey, out string longKeyExt))
+            if (keyType == typeof(long))
+            {
+                Func<TContext, long, Task<TEntity>> longQuery = null;
+                Func<TContext, long, string, Task<TEntity>> longCompoundQuery = null;
+
+                return (TContext context, GrainId grainId) =>
                 {
+                    GrainIdKeyExtensions.TryGetIntegerKey(grainId, out long longKey, out string longKeyExt);
+
                     if (!string.IsNullOrWhiteSpace(longKeyExt))
                     {
                         EnsureKeyExtConfigured(options);
@@ -178,8 +204,14 @@ namespace Orleans.Providers.EntityFramework.Conventions
 
                     longQuery ??= ExpressionHelper.CreateCompiledQuery<TContext, TState, TEntity, long>(options);
                     return longQuery(context, longKey);
-                }
+                };
+            }
 
+            // String key
+            Func<TContext, string, Task<TEntity>> stringQuery = null;
+
+            return (TContext context, GrainId grainId) =>
+            {
                 string stringKey = GetStringKey(grainId);
                 stringQuery ??= ExpressionHelper.CreateCompiledQuery<TContext, TState, TEntity, string>(options);
                 return stringQuery(context, stringKey);
@@ -197,7 +229,15 @@ namespace Orleans.Providers.EntityFramework.Conventions
                 options.KeyPropertyName = _options.DefaultGrainKeyPropertyName;
 
             if (options.KeyExtPropertyName == null)
-                options.KeyExtPropertyName = _options.DefaultGrainKeyExtPropertyName;
+            {
+                // Only apply default KeyExt property name if the entity type actually has it
+                PropertyInfo defaultKeyExtProp = typeof(TEntity).GetProperty(
+                    _options.DefaultGrainKeyExtPropertyName,
+                    BindingFlags.Instance | BindingFlags.Public);
+
+                if (defaultKeyExtProp != null)
+                    options.KeyExtPropertyName = _options.DefaultGrainKeyExtPropertyName;
+            }
 
 
             PropertyInfo idProperty = ReflectionHelper.GetPropertyInfo<TEntity>(
@@ -232,6 +272,14 @@ namespace Orleans.Providers.EntityFramework.Conventions
                 if (options.KeyExtSelector == null)
                     options.KeyExtSelector = ReflectionHelper.GetAccessorExpression<TEntity, string>(keyExtProperty);
             }
+        }
+
+        private static Type GetEntityKeyType<TEntity>(GrainStorageOptions options)
+        {
+            PropertyInfo keyProperty = typeof(TEntity).GetProperty(
+                options.KeyPropertyName, BindingFlags.Instance | BindingFlags.Public);
+
+            return keyProperty?.PropertyType ?? typeof(string);
         }
 
         private static void EnsureKeyExtConfigured<TContext, TState, TEntity>(

@@ -4,9 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Update;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 
@@ -71,13 +69,9 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Internal
                 .HasConversion<bool>(
                     isPersisted => true,
                     value => true);
-            
+
             builder.Entity<EntityWithIntegerKeyWithEtag>()
                 .Property(e => e.ETag)
-                .HasConversion<byte[]>(
-                    value => BitConverter.GetBytes(Random.Next()),
-                    storedValue => storedValue
-                )
                 .IsConcurrencyToken();
 
             builder.Entity<EntityWithGuidCompoundKey>()
@@ -131,22 +125,26 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Internal
         private void MockConcurrencyChecks()
         {
             // Check etags as the in-memory storage doesn't
-            foreach (EntityWithIntegerKeyWithEtag entitiy in this.ETagEntities.Local)
+            foreach (EntityWithIntegerKeyWithEtag entity in this.ETagEntities.Local)
             {
-                var entry = this.Entry(entitiy);
+                var entry = this.Entry(entity);
 
                 if (entry.State != EntityState.Modified)
                     continue;
 
                 EntityWithIntegerKeyWithEtag storedEntity = this.ETagEntities.AsNoTracking()
-                    .Single(e => e.Id == entitiy.Id);
+                    .Single(e => e.Id == entity.Id);
 
-                if (!storedEntity.ETag.SequenceEqual(entitiy.ETag))
-                    throw new DbUpdateConcurrencyException("ETag violation",
-                        entry.GetInfrastructure().StateManager.Entries.Select(
-                            e => (IUpdateEntry) e).ToList());
+                if (!storedEntity.ETag.SequenceEqual(entity.ETag))
+                {
+                    var updateEntries = new List<IUpdateEntry>
+                    {
+                        this.Entry(entity).GetInfrastructure()
+                    };
+                    throw new DbUpdateConcurrencyException("ETag violation", updateEntries);
+                }
 
-                entitiy.ETag = BitConverter.GetBytes(Random.Next());
+                entity.ETag = BitConverter.GetBytes(Random.Next());
             }
         }
     }

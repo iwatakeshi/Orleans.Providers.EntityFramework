@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,30 @@ namespace Orleans.Providers.EntityFramework.Internal
 {
     public static class ExpressionHelper
     {
+        // Cache the SingleOrDefaultAsync method (predicate + cancellation token overload)
+        private static MethodInfo GetSingleOrDefaultAsyncMethod()
+        {
+            return typeof(EntityFrameworkQueryableExtensions)
+                .GetMethods()
+                .Single(mi =>
+                    mi.Name == nameof(EntityFrameworkQueryableExtensions.SingleOrDefaultAsync) &&
+                    mi.GetParameters().Length == 3 &&
+                    mi.GetParameters()[1].ParameterType.IsGenericType &&
+                    mi.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(Expression<>));
+        }
+
+        // Cache the Queryable.SingleOrDefault method (predicate overload)
+        private static MethodInfo GetSingleOrDefaultMethod()
+        {
+            return typeof(Queryable)
+                .GetMethods()
+                .Single(mi =>
+                    mi.Name == nameof(Queryable.SingleOrDefault) &&
+                    mi.GetParameters().Length == 2 &&
+                    mi.GetParameters()[1].ParameterType.IsGenericType &&
+                    mi.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(Expression<>));
+        }
+
         public static Func<TContext, TKey, Task<TEntity>> CreateQuery<TContext, TState, TEntity, TKey>(
             GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
@@ -31,9 +56,7 @@ namespace Orleans.Providers.EntityFramework.Internal
                 contextParameter);
 
             var compiledLambdaBody = Expression.Call(
-                typeof(EntityFrameworkQueryableExtensions).GetMethods().Single(mi =>
-                        mi.Name == nameof(EntityFrameworkQueryableExtensions.SingleOrDefaultAsync) &&
-                        mi.GetParameters().Count() == 3)
+                GetSingleOrDefaultAsyncMethod()
                     .MakeGenericMethod(typeof(TEntity)),
                 queryable,
                 Expression.Quote(predicate),
@@ -74,9 +97,7 @@ namespace Orleans.Providers.EntityFramework.Internal
                 contextParameter);
 
             var compiledLambdaBody = Expression.Call(
-                typeof(EntityFrameworkQueryableExtensions).GetMethods().Single(mi =>
-                        mi.Name == nameof(EntityFrameworkQueryableExtensions.SingleOrDefaultAsync) &&
-                        mi.GetParameters().Count() == 3)
+                GetSingleOrDefaultAsyncMethod()
                     .MakeGenericMethod(typeof(TEntity)),
                 queryable,
                 Expression.Quote(predicate),
@@ -104,8 +125,7 @@ namespace Orleans.Providers.EntityFramework.Internal
                 contextParameter);
 
             var compiledLambdaBody = Expression.Call(
-                typeof(Queryable).GetMethods().Single(mi =>
-                        mi.Name == nameof(Queryable.SingleOrDefault) && mi.GetParameters().Count() == 2)
+                GetSingleOrDefaultMethod()
                     .MakeGenericMethod(typeof(TEntity)),
                 queryable,
                 Expression.Quote(predicate));
@@ -148,8 +168,7 @@ namespace Orleans.Providers.EntityFramework.Internal
                 contextParameter);
 
             var compiledLambdaBody = Expression.Call(
-                typeof(Queryable).GetMethods().Single(mi =>
-                        mi.Name == nameof(Queryable.SingleOrDefault) && mi.GetParameters().Count() == 2)
+                GetSingleOrDefaultMethod()
                     .MakeGenericMethod(typeof(TEntity)),
                 queryable,
                 Expression.Quote(predicate));

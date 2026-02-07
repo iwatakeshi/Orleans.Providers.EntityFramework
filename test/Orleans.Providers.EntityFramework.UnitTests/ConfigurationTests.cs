@@ -5,8 +5,8 @@ using Orleans.Providers.EntityFramework.UnitTests.Fixtures;
 using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
-using Orleans.Storage;
 using Orleans.Runtime;
+using Orleans.Storage;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -26,10 +26,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
         [Fact]
         public async Task ReadConfiguredCustomKeyStateShouldPass()
         {
-
             TestGrainState<ConfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<ConfiguredEntityWithCustomGuidKey>(_serviceProvider);
-
 
             GrainId grainId
                 = TestGrainId.Create<ConfiguredGrainWithCustomGuidKey>(
@@ -39,13 +37,12 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 grainId,
                 grainState);
         }
+
         [Fact]
         public async Task ReadConfiguredCustomKeyStateShouldPassForGrainsWithSameStateType()
         {
-
             TestGrainState<ConfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<ConfiguredEntityWithCustomGuidKey>(_serviceProvider);
-
 
             GrainId grainId
                 = TestGrainId.Create<ConfiguredGrainWithCustomGuidKey2>(
@@ -59,7 +56,6 @@ namespace Orleans.Providers.EntityFramework.UnitTests
         [Fact]
         public async Task ReadUnconfiguredCustomKeyStateShouldFail()
         {
-
             TestGrainState<UnconfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<UnconfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
@@ -74,19 +70,22 @@ namespace Orleans.Providers.EntityFramework.UnitTests
         }
 
         [Fact]
-        public async Task ReadInvalidConfiguredCustomKeyStateShouldFail()
+        public async Task ReadInvalidConfiguredCustomKeyStateShouldReturnNoEntity()
         {
-
             TestGrainState<InvalidConfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<InvalidConfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
             GrainId grainId
                 = TestGrainId.Create<InvalidConfiguredGrainWithGuidKey>(0);
 
-            await Assert.ThrowsAsync<GrainStorageConfigurationException>(() => _storage.ReadStateAsync(
+            // With GrainId-based key dispatch (determined by entity key type, not grain type),
+            // a mismatched grain key type results in a failed lookup rather than an exception.
+            await _storage.ReadStateAsync(
                 typeof(InvalidConfiguredGrainWithGuidKey).FullName,
                 grainId,
-                grainState));
+                grainState);
+
+            Assert.False(grainState.RecordExists);
         }
     }
 }

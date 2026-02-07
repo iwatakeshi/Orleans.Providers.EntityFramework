@@ -6,8 +6,8 @@ using Orleans.Providers.EntityFramework.UnitTests.Fixtures;
 using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
-using Orleans.Storage;
 using Orleans.Runtime;
+using Orleans.Storage;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -25,7 +25,7 @@ namespace Orleans.Providers.EntityFramework.UnitTests
         }
 
         [Fact]
-        public async Task StateShoudContainETag()
+        public async Task StateShouldContainETag()
         {
             TestGrainState<EntityWithIntegerKeyWithEtag> grainState =
                 Internal.Utils.CreateAndStoreGrainState<EntityWithIntegerKeyWithEtag>(_serviceProvider);
@@ -53,17 +53,21 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             GrainId grainId
                 = TestGrainId.Create(grainState.State);
 
-            // update the database
+            // Read to get the correct ETag from the database
+            await _storage.ReadStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
+                grainState);
+
+            // Update the database via direct access (simulating a concurrent write)
             EntityWithIntegerKeyWithEtag clone = grainState.State.Clone();
             clone.Title = "Updated";
             using (var context = _serviceProvider.GetRequiredService<TestDbContext>())
             {
                 context.Entry(clone).State = EntityState.Modified;
-
                 context.SaveChanges();
             }
 
-            // This should fail
+            // This should fail because the DB ETag has changed
             grainState.State.Title = "Failing Update";
             await Assert.ThrowsAsync<InconsistentStateException>(() =>
                 _storage.WriteStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
@@ -79,6 +83,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
 
             GrainId grainId
                 = TestGrainId.Create(grainState.State);
+
+            // Read to get the correct ETag from the database
+            await _storage.ReadStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
+                grainState);
 
             grainState.State.Title = "Updated";
 

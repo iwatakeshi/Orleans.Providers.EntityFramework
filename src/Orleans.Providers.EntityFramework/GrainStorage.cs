@@ -75,11 +75,15 @@ namespace Orleans.Providers.EntityFramework
                 TEntity entity = await _options.ReadStateAsync(context, grainId)
                     .ConfigureAwait(false);
 
-                _options.SetEntity(grainState, entity);
                 grainState.RecordExists = entity != null;
 
-                if (entity != null && _options.CheckForETag)
-                    grainState.ETag = _options.GetETagFunc(entity);
+                if (entity != null)
+                {
+                    _options.SetEntity(grainState, entity);
+
+                    if (_options.CheckForETag)
+                        grainState.ETag = _options.GetETagFunc(entity);
+                }
             }
         }
 
