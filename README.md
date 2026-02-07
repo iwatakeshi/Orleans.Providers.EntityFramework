@@ -1,50 +1,48 @@
 # Orleans.Providers.EntityFramework
+
 An Entity Framework Core implementation of Orleans Grain Storage.
 
-There are some nice to have features missing. I didn't needed them particularly but If you have suggestions or want to help out, it would be much appreciated.
-
-[![AppVeyor](https://img.shields.io/appveyor/ci/alirezajm/orleans-providers-entityframework.svg)](https://ci.appveyor.com/project/alirezajm/orleans-providers-entityframework)
+[![CI](https://github.com/alirezajm/Orleans.Providers.EntityFramework/actions/workflows/ci.yml/badge.svg)](https://github.com/alirezajm/Orleans.Providers.EntityFramework/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Orleans.Providers.EntityFramework.svg)](https://www.nuget.org/packages/Orleans.Providers.EntityFramework)
+
+## Requirements
+
+- .NET 10+
+- Orleans 10.x
+- Entity Framework Core 10.x
 
 ## Usage
 
-Nuget: https://www.nuget.org/packages/Orleans.Providers.EntityFramework/
-
-or
-
-```dotnet add package Orleans.Providers.EntityFramework --version 0.15.1```
-
-or 
-
-```Install-Package Orleans.Providers.EntityFramework --version 0.15.1```
-
-
-And configure the storage provider using SiloHostBuilder:
-
-```c#
-ISiloHostBuilder builder = new SiloHostBuilder();
-
-builder.AddEfGrainStorage<FrogsDbContext>("ef");  
-
+```
+dotnet add package Orleans.Providers.EntityFramework
 ```
 
-This requires your DbContext to be registered as well
+Configure the storage provider on the silo builder:
 
-```c#
-services
-    .AddDbContextPool<FatDbContext>(
-        (sp, options) => {});
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.UseOrleans(siloBuilder =>
+{
+    siloBuilder.AddEfGrainStorage<FrogsDbContext>("ef");
+});
 ```
-The GrainStorage will resolve and releases contexts per operation so you won't have many context in use.
-Hence it's better to use the context pool provided in the entity framework package or use your own.
+
+This requires your `DbContext` to be registered as well:
+
+```csharp
+builder.Services.AddDbContextPool<FrogsDbContext>(options => { });
+```
+
+The storage provider creates a new DI scope and resolves the `DbContext` per operation, so you won't have long-lived contexts. Using `AddDbContextPool` is recommended for performance.
 
 ## Configuration
 
-By default the provider will search for key properties on your data models that match your grain interfaces, 
-but you can change the default behavior like so:
+By default the provider will search for key properties on your data models that match your grain interfaces,
+but you can change the default behavior:
 
-```c#
-services.Configure<GrainStorageConventionOptions>(options =>
+```csharp
+builder.Services.Configure<GrainStorageConventionOptions>(options =>
 {
     options.DefaultGrainKeyPropertyName = "Id";
     options.DefaultPersistenceCheckPropertyName = "Id";
@@ -52,99 +50,99 @@ services.Configure<GrainStorageConventionOptions>(options =>
 });
 ```
 
-**DefaultPersistenceCheckPropertyName** is used to check if a model needs to be inserted into the database or updated. 
-The value of said property will be checked against the default value of the type.
+**DefaultPersistenceCheckPropertyName** is used to determine whether a model needs to be inserted or updated.
+The value of the property is compared against the default value of its type.
 
-The following sample model would work out of the box for a grain that implements IGrainWithGuidCompoundKey and requires no configuration:
+The following model works out of the box for a grain implementing `IGrainWithGuidCompoundKey` with no additional configuration:
 
-```c#
-public class Box {
-  public Guid Id { get; set; }
-  public string KeyExt { get; set; }
-  public byte[] ETag { get; set; }
+```csharp
+public class Box
+{
+    public Guid Id { get; set; }
+    public string KeyExt { get; set; }
+    public byte[] ETag { get; set; }
 }
 ```
 
-_If you use conventions (as described, configuring GrainStorageConventionOptions) your context should contain DbSets for your models._
+_If you use conventions, your context should contain `DbSet` properties for your models:_
 
-```c#
+```csharp
 public DbSet<Box> Boxes { get; set; }
 ```
 
-### Querying models using custom expressions
-To configure a special model you can do:
+### Configuring custom keys
 
-```c#
-public class SpecialBox {
-  public long WeirdId { get; set; }
-  public string Type { get; set; }
-  public long ClusterIndexId { get; set; }
-}
+To map a model with non-standard key properties:
 
-services
-    .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
-        options => options
-            .UseQueryExpression(grainRef =>
-            {
-                long key = grainRef.GetPrimaryKeyLong(out string keyExt);
-                return (box => box.WeirdId == key && box.Type == keyExt);
-            })
-    )
-```
-
-or 
-
-```c#
-services
+```csharp
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
         options => options
             .UseKey(box => box.WeirdId)
             .UseKeyExt(box => box.Type)
-    )
+    );
 ```
 
-The **UseQueryExpression** method instructs the sotrage to use the provided expression to query the database.
+### Custom read state queries
 
-### Loading additional data on read state
-You can load additional data while reading the state. Using the SpecialBox model:
+You can provide a fully custom read delegate:
 
-```c#
-services
+```csharp
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
         options => options
-            .UseQuery(context => context.SpecialBoxes.AsNoTracking()
-                .Include(box => box.Gems)
-                .ThenInclude(gems => gems.Map))
-    )
+            .ConfigureReadState(async (context, grainId) =>
+            {
+                GrainIdKeyExtensions.TryGetGuidKey(grainId, out Guid key, out _);
+                return await context.SpecialBoxes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == key);
+            })
+    );
 ```
 
-### Using custom persistence check
+### Loading additional data on read
 
-When using Guids as primary keys you're most likely to add a cluster index that is auto incremented. 
-That field can be used to check if the state is already inserted into the database or not:
+You can load navigation properties by customizing the query source:
 
-```c#
-services
+```csharp
+builder.Services
+    .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
+        options => options
+            .UseQuery(context => context.SpecialBoxes
+                .AsNoTracking()
+                .Include(box => box.Gems)
+                .ThenInclude(gem => gem.Map))
+    );
+```
+
+### Custom persistence check
+
+When using Guids as primary keys you may have a separate auto-incremented cluster index.
+That field can be used to check if the state already exists in the database:
+
+```csharp
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
         options => options
             .ConfigureIsPersisted(box => box.ClusterIndexId > 0)
-    )
+    );
 ```
 
-or 
+or
 
-```c#
-services
+```csharp
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
         options => options
             .CheckPersistenceOn(box => box.ClusterIndexId)
-    )
+    );
 ```
 
-If you use different cluster indices (In case of mssqlserver) than your primary keys you can configure the dafaults to write less configuration code:
+To change the default for all models:
 
-```c#
-services.Configure<GrainStorageConventionOptions>(options =>
+```csharp
+builder.Services.Configure<GrainStorageConventionOptions>(options =>
 {
     options.DefaultPersistenceCheckPropertyName = "ClusterIndexId";
 });
@@ -152,132 +150,148 @@ services.Configure<GrainStorageConventionOptions>(options =>
 
 ### ETags
 
-By default models are searched for Etags and if a property on a model is marked as **ConcurrencyToken** the storage will pick that up.
+By default models are searched for ETags. If a property on a model is marked as a **ConcurrencyToken**, the storage will pick it up automatically.
 
-Using the fluent API that would be:
+Using the EF Core fluent API:
 
-```c#
-builder.Entity<SpecialBox>()
+```csharp
+modelBuilder.Entity<SpecialBox>()
     .Property(e => e.ETag)
     .IsConcurrencyToken();
-
 ```
 
-Models can be further configured using extensions:
+You can also explicitly configure ETags using extensions:
 
-```c#
-services
+```csharp
+// Auto-detect — throws if no valid concurrency token is found
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
-        options => options
-            .UseETag()
-    )
-```
+        options => options.UseETag()
+    );
 
-Using **UseETag** overload with no params instructs the storage to find an ETag property. If no valid property was found, an exception would be thrown.
-
-Use the following overload to explicitly configure the storage to use the provided property. If the property is not marked as **ConcurrencyCheck** an exception would be thrown.
-
-```c#
-services
+// Explicit property — throws if not marked as ConcurrencyCheck
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
-        options => options
-            .UseETag(box => box.ETag)
-    )
+        options => options.UseETag(box => box.ETag)
+    );
 ```
+
+When a concurrency conflict occurs during `WriteStateAsync`, the provider throws `InconsistentStateException` (the standard Orleans exception for ETag violations), wrapping the underlying `DbUpdateConcurrencyException`.
 
 ## Controlling how the state is saved
 
-When calling writeState, the state object is attached to a context and its state (EF entry state) would be set to Added or Modified.
+When calling `WriteStateAsync`, the state object is attached to the context and its entry state is set to `Added` or `Modified`.
 
-There are two ways to change the behavior:
+There are two ways to override this behavior:
 
-### GrainStorageContext 
+### GrainStorageContext
 
-```c#
+```csharp
 GrainStorageContext<Box>.ConfigureEntryState(
     entry => entry.Property(e => e.Title).IsModified = true);
 ```
 
-This way only the Title field would be updated.
+This way only the `Title` field would be updated.
 
 Things to consider:
 
-- When configuring the entry manually, the storage provider only attaches the state to the context and doesn't set the entry state. So for example if you call this ```GrainStorageContext<Box>.ConfigureEntryState(entry => {});``` the write operation does nothing.
-- Because GrainStorageContext uses async locals you have to call ```GrainStorageContext<Box>.Clear()``` if you want to do multiple writes on the same asynchronous operation.
+- When configuring the entry manually, the storage provider only attaches the state to the context and doesn't set the entry state. For example, `GrainStorageContext<Box>.ConfigureEntryState(entry => { });` would be a no-op.
+- Because `GrainStorageContext` uses async locals, you must call `GrainStorageContext<Box>.Clear()` if you want to do multiple writes in the same asynchronous operation.
 
 ### IGrainStateEntryConfigurator
 
-By implementing ```IGrainStateEntryConfigurator<TContext, TGrain, TEntity>```  and registering it.
+Implement `IGrainStateEntryConfigurator<TContext, TEntity>` and register it.
 
-The default implementation is ```DefaultGrainStateEntryConfigurator``` and it just does the following:
+The default implementation simply sets the entry state:
 
-```c#
+```csharp
 public void ConfigureSaveEntry(ConfigureSaveEntryContext<TContext, TEntity> context)
 {
-	EntityEntry<TEntity> entry = context.DbContext.Entry(context.Entity);
+    EntityEntry<TEntity> entry = context.DbContext.Entry(context.Entity);
 
-	entry.State = context.IsPersisted
-		? EntityState.Modified
-		: EntityState.Added;
+    entry.State = context.IsPersisted
+        ? EntityState.Modified
+        : EntityState.Added;
 }
 ```
 
 ## Precompiled Queries
 
-By default all queries are precompiled, unless using `ConfigureReadState` extension.
+By default all queries are precompiled, unless overridden via `ConfigureReadState`.
 
-You can disable precompilation using 
+You can disable precompilation per state type:
 
-```c#
-services
+```csharp
+builder.Services
     .ConfigureGrainStorageOptions<FatDbContext, SpecialBoxGrain, SpecialBox>(
-        options => options
-            .PreCompileReadQuery(false)
-    )
+        options => options.PreCompileReadQuery(false)
+    );
 ```
-
-
 
 ## Conventions
 
-You can change the conventions by implementing `IGrainStorageConvention`  or inheriting from `GrainStorageConvention`  which is used for all types and `IGrainStorageConvention<TContext, TGrain, TEntity>` for a specific grain type which has no default implementation.
-
-
+You can change the conventions by implementing `IGrainStorageConvention` or inheriting from `GrainStorageConvention` (used for all types), and `IGrainStorageConvention<TContext, TGrain, TEntity>` for a specific grain type (no default implementation).
 
 ## Custom Grain State Setter/Getter
 
-You can implement `IEntityTypeResolver` or inheriting from `EntityTypeResolver` so you can have different grain state and storage model. This is particularly useful if you have abstract states or models without public default constructors which is a constraint on orleans grain states.
+You can implement `IEntityTypeResolver` or inherit from `EntityTypeResolver` to have different grain state and storage models. This is useful for abstract states or models without public default constructors, which is a constraint on Orleans grain states.
 
-For example you can have the following class
+For example:
 
-```c#
-class GenericGrainState<TEntity> 
+```csharp
+class GenericGrainState<TEntity>
 {
-    public TEntity Value { get; set;}
+    public TEntity Value { get; set; }
 }
 ```
 
-Using a custom `EntityTypeResolver` you can tell the storage `TEntity` is the persistent model.
+Using a custom `EntityTypeResolver`, you can tell the storage that `TEntity` is the persistent model.
 
-## Compatibility
+## Multi-Tenancy
 
-To build for specific dependency versions use:
+The library is fully compatible with multi-tenant architectures. Because a new DI scope and `DbContext` instance is resolved for every storage operation, any tenant-aware `DbContext` factory works transparently.
 
+### Query filter approach (single database or schema-per-tenant)
+
+Configure EF Core global query filters that read the current tenant from a scoped service:
+
+```csharp
+builder.Services.AddScoped<ITenantProvider, RequestContextTenantProvider>();
+
+builder.Services.AddDbContextPool<AppDbContext>((sp, options) =>
+{
+    var tenant = sp.GetRequiredService<ITenantProvider>();
+    options.UseSqlServer(tenant.ConnectionString);
+});
 ```
-dotnet test /p:ORLEANS_VERSION=3.0.0 /p:EF_VERSION=3.0.0 /p:MSEXT_VERSION=3.0.0
+
+In your `DbContext`:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.Entity<Box>().HasQueryFilter(b => b.TenantId == _tenantProvider.TenantId);
+}
 ```
 
-You can run tests for a specific version using build parameters:
+### Connection-per-tenant approach
 
+Use Orleans `RequestContext` to propagate the tenant identifier from the grain call:
+
+```csharp
+// In the client or grain call
+RequestContext.Set("TenantId", tenantId);
+
+// Scoped tenant provider
+public class RequestContextTenantProvider : ITenantProvider
+{
+    public string TenantId => RequestContext.Get("TenantId") as string
+        ?? throw new InvalidOperationException("Tenant not set.");
+}
 ```
-dotnet test /p:ORLEANS_VERSION=3.0.0 /p:EF_VERSION=3.0.0 /p:MSEXT_VERSION=3.0.0
-```
 
-
-
+No changes to the storage library are needed — the tenant resolution happens entirely in the DI and `DbContext` configuration layer.
 
 ## Known Issues and Limitations
 
-- As types has to be configured in dbcontext, arbitrary types can't use this provider. 
-This specially causes issues with Orleans VersionStoreGrain internal grain, hence this GrainStorage can't 
-be used as default grain storage. I'll handle that special case if I get the time needed.
+- Since entity types must be configured in the `DbContext` model, arbitrary types cannot use this provider. This causes issues with Orleans internal grains like `VersionStoreGrain`, so this storage provider should be registered as a **named** provider rather than the default grain storage.
