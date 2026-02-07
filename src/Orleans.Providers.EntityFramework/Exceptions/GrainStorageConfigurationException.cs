@@ -1,20 +1,16 @@
-﻿using System;
+﻿namespace Orleans.Providers.EntityFramework.Exceptions;
 
-namespace Orleans.Providers.EntityFramework.Exceptions
+public class GrainStorageConfigurationException : Exception
 {
-    // todo: Use for configuration errors
-    public class GrainStorageConfigurationException : Exception
+    public GrainStorageConfigurationException()
     {
-        public GrainStorageConfigurationException()
-        {
-        }
+    }
 
-        public GrainStorageConfigurationException(string message) : base(message)
-        {
-        }
+    public GrainStorageConfigurationException(string message) : base(message)
+    {
+    }
 
-        public GrainStorageConfigurationException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
+    public GrainStorageConfigurationException(string message, Exception innerException) : base(message, innerException)
+    {
     }
 }

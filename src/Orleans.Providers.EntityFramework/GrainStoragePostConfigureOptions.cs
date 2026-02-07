@@ -1,88 +1,59 @@
-﻿using System;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Orleans.Providers.EntityFramework.Conventions;
-using Orleans.Providers.EntityFramework.Exceptions;
-using Orleans;
 
-namespace Orleans.Providers.EntityFramework
+namespace Orleans.Providers.EntityFramework;
+
+public class GrainStoragePostConfigureOptions<TContext, TState, TEntity>(IServiceProvider serviceProvider)
+    : IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>
+    where TContext : DbContext
+    where TState : class
+    where TEntity : class
 {
-    public class GrainStoragePostConfigureOptions<TContext, TState, TEntity>
-        : IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>
-        where TContext : DbContext
-        where TState : class
-        where TEntity : class
+    public IGrainStorageConvention<TContext, TState, TEntity>? Convention { get; } =
+        serviceProvider.GetService<IGrainStorageConvention<TContext, TState, TEntity>>();
+
+    public IGrainStorageConvention DefaultConvention { get; } =
+        serviceProvider.GetRequiredService<IGrainStorageConvention>();
+
+    public void PostConfigure(string? name, GrainStorageOptions<TContext, TState, TEntity> options)
     {
-        public IGrainStorageConvention<TContext, TState, TEntity> Convention { get; }
-        public IGrainStorageConvention DefaultConvention { get; }
+        options.IsPersistedFunc ??= DefaultConvention.CreateIsPersistedFunc<TEntity>(options);
 
-        public GrainStoragePostConfigureOptions(IServiceProvider serviceProvider)
+        // Configure ETag
+        if (options.ShouldUseETag && !string.IsNullOrWhiteSpace(options.ETagPropertyName))
         {
-            DefaultConvention =
-                (IGrainStorageConvention)serviceProvider.GetRequiredService(typeof(IGrainStorageConvention));
-            Convention = (IGrainStorageConvention<TContext, TState, TEntity>)
-                serviceProvider.GetService(typeof(IGrainStorageConvention<TContext, TState, TEntity>));
+            DefaultConvention.ConfigureETag(options.ETagPropertyName, options);
         }
 
-        public void PostConfigure(string name, GrainStorageOptions<TContext, TState, TEntity> options)
+        if (options.ReadStateAsync is null)
         {
-            if (options.IsPersistedFunc == null)
-                options.IsPersistedFunc =
-                    DefaultConvention.CreateIsPersistedFunc<TEntity>(options);
+            options.DbSetAccessor ??= Convention?.CreateDefaultDbSetAccessorFunc()
+                                     ?? DefaultConvention.CreateDefaultDbSetAccessorFunc<TContext, TEntity>();
 
-            // Configure ETag
-            if (options.ShouldUseETag)
-            {
-                if (!string.IsNullOrWhiteSpace(options.ETagPropertyName))
-                    DefaultConvention.ConfigureETag(options.ETagPropertyName, options);
-            }
+            if (Convention is not null)
+                Convention.SetDefaultKeySelector(options);
+            else
+                DefaultConvention.SetDefaultKeySelectors(options);
 
-            if (options.ReadStateAsync == null)
-            {
-                if (options.DbSetAccessor == null)
-                    options.DbSetAccessor = Convention?.CreateDefaultDbSetAccessorFunc()
-                                        ?? DefaultConvention.CreateDefaultDbSetAccessorFunc<TContext, TEntity>();
-
-                if (Convention != null)
-                    Convention.SetDefaultKeySelector(options);
-                else
-                    DefaultConvention.SetDefaultKeySelectors(options);
-
-                if (options.PreCompileReadQuery)
-                {
-                    options.ReadStateAsync
-                        = Convention?.CreatePreCompiledDefaultReadStateFunc(options)
-                          ?? DefaultConvention
-                              .CreatePreCompiledDefaultReadStateFunc(options);
-                }
-                else
-                {
-                    options.ReadStateAsync
-                        = Convention?.CreateDefaultReadStateFunc()
-                          ?? DefaultConvention
-                              .CreateDefaultReadStateFunc(options);
-                }
-            }
-
-            if (options.SetEntity == null)
-                options.SetEntity =
-                    Convention?.GetSetterFunc()
-                    ?? DefaultConvention.GetSetterFunc<TState, TEntity>();
-
-            if (options.GetEntity == null)
-                options.GetEntity =
-                    Convention?.GetGetterFunc()
-                    ?? DefaultConvention.GetGetterFunc<TState, TEntity>();
-
-            DefaultConvention.FindAndConfigureETag(options, options.ShouldUseETag);
-
-            // todo: Validate options
-
-            options.IsConfigured = true;
+            options.ReadStateAsync = options.PreCompileReadQuery
+                ? Convention?.CreatePreCompiledDefaultReadStateFunc(options)
+                  ?? DefaultConvention.CreatePreCompiledDefaultReadStateFunc(options)
+                : Convention?.CreateDefaultReadStateFunc()
+                  ?? DefaultConvention.CreateDefaultReadStateFunc(options);
         }
+
+        options.SetEntity ??= Convention?.GetSetterFunc()
+                              ?? DefaultConvention.GetSetterFunc<TState, TEntity>();
+
+        options.GetEntity ??= Convention?.GetGetterFunc()
+                              ?? DefaultConvention.GetGetterFunc<TState, TEntity>();
+
+        DefaultConvention.FindAndConfigureETag(options, options.ShouldUseETag);
+
+        // TODO: Validate options
+
+        options.IsConfigured = true;
     }
 }

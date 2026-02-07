@@ -1,17 +1,10 @@
-﻿namespace Orleans.Providers.EntityFramework
+﻿namespace Orleans.Providers.EntityFramework;
+
+public class ConfigureSaveEntryContext<TContext, TEntity>(TContext dbContext, TEntity entity)
 {
-    public class ConfigureSaveEntryContext<TContext, TEntity>
-    {
-        public ConfigureSaveEntryContext(TContext dbContext, TEntity entity)
-        {
-            DbContext = dbContext;
-            Entity = entity;
-        }
+    public TContext DbContext { get; } = dbContext;
 
-        public TContext DbContext { get; }
+    public TEntity Entity { get; } = entity;
 
-        public TEntity Entity { get; }
-
-        public bool IsPersisted { get; set; }
-    }
+    public bool IsPersisted { get; set; }
 }
