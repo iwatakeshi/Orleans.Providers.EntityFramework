@@ -2,12 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>False</IsPackable>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,11 +14,11 @@
     <PackageReference Include="dotnet-xunit" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
-    <PackageReference Include="microsoft.orleans.core.abstractions" />
+    <PackageReference Include="Microsoft.Orleans.Core.Abstractions" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.reporters" />
     <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Microsoft.Extensions.Logging.console" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
   <ItemGroup>

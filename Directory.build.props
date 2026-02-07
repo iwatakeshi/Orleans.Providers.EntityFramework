@@ -1,14 +1,14 @@
 ﻿<Project>
   <PropertyGroup>
     <Version>0.15.1</Version>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>latest</LangVersion>
     <Version Condition="'$(APPVEYOR_BUILD_NUMBER)' != ''">0.0.0-nightly.$(APPVEYOR_BUILD_NUMBER)</Version>
   </PropertyGroup>
 
   <PropertyGroup>
-    <OrleansVersion>3.0.0</OrleansVersion>
-    <EntityFrameworkVersion>3.1.1</EntityFrameworkVersion>
-    <MSExtensionsVersion>3.1.1</MSExtensionsVersion>
+    <OrleansVersion>10.0.1</OrleansVersion>
+    <EntityFrameworkVersion>10.0.2</EntityFrameworkVersion>
+    <MSExtensionsVersion>10.0.2</MSExtensionsVersion>
 
     <OrleansVersion Condition="'$(ORLEANS_VERSION)' != ''">$(ORLEANS_VERSION)</OrleansVersion>
     <EntityFrameworkVersion Condition="'$(EF_VERSION)' != ''">$(EF_VERSION)</EntityFrameworkVersion>
