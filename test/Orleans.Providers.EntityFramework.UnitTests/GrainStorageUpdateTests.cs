@@ -7,6 +7,7 @@ using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 using Orleans.Storage;
+using Orleans.Runtime;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -70,11 +71,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 State = state
             };
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(entity);
+            GrainId grainId
+                = TestGrainId.Create(entity);
 
-            await _storage.WriteStateAsync(typeof(GrainWithCustomStateGuidKey).FullName,
-                grainRef,
+            await _storage.WriteStateAsync(typeof(GrainStateWrapper<EntityWithGuidKey>).FullName,
+                grainId,
                 grainState
             );
 
@@ -90,11 +91,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<TState> grainState = Internal.Utils.CreateAndStoreGrainState<TState>(_serviceProvider);
             grainState.State.Title += "UPDATED";
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
-            await _storage.WriteStateAsync(typeof(TGrain).FullName,
-                grainRef,
+            await _storage.WriteStateAsync(typeof(TState).FullName,
+                grainId,
                 grainState
             );
 

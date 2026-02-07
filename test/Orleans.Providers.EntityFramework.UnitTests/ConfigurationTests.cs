@@ -6,6 +6,7 @@ using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 using Orleans.Storage;
+using Orleans.Runtime;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -30,13 +31,12 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 Internal.Utils.CreateAndStoreGrainState<ConfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create<ConfiguredGrainWithCustomGuidKey>(
+            GrainId grainId
+                = TestGrainId.Create<ConfiguredGrainWithCustomGuidKey>(
                     grainState.State.CustomKey);
 
-
             await _storage.ReadStateAsync(typeof(ConfiguredGrainWithCustomGuidKey).FullName,
-                grainRef,
+                grainId,
                 grainState);
         }
         [Fact]
@@ -47,13 +47,12 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 Internal.Utils.CreateAndStoreGrainState<ConfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create<ConfiguredGrainWithCustomGuidKey2>(
+            GrainId grainId
+                = TestGrainId.Create<ConfiguredGrainWithCustomGuidKey2>(
                     grainState.State.CustomKey, grainState.State.CustomKeyExt);
 
-
             await _storage.ReadStateAsync(typeof(ConfiguredGrainWithCustomGuidKey2).FullName,
-                grainRef,
+                grainId,
                 grainState);
         }
 
@@ -64,13 +63,13 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<UnconfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<UnconfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create<UnconfiguredGrainWithCustomGuidKey>(
+            GrainId grainId
+                = TestGrainId.Create<UnconfiguredGrainWithCustomGuidKey>(
                     grainState.State.CustomKey, grainState.State.CustomKeyExt);
 
             await Assert.ThrowsAsync<GrainStorageConfigurationException>(() => _storage.ReadStateAsync(
                 typeof(UnconfiguredGrainWithCustomGuidKey).FullName,
-                grainRef,
+                grainId,
                 grainState));
         }
 
@@ -81,12 +80,12 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<InvalidConfiguredEntityWithCustomGuidKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<InvalidConfiguredEntityWithCustomGuidKey>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create<InvalidConfiguredGrainWithGuidKey>(0);
+            GrainId grainId
+                = TestGrainId.Create<InvalidConfiguredGrainWithGuidKey>(0);
 
             await Assert.ThrowsAsync<GrainStorageConfigurationException>(() => _storage.ReadStateAsync(
                 typeof(InvalidConfiguredGrainWithGuidKey).FullName,
-                grainRef,
+                grainId,
                 grainState));
         }
     }

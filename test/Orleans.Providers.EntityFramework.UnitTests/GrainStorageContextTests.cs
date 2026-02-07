@@ -5,6 +5,7 @@ using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 using Orleans.Storage;
+using Orleans.Runtime;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -32,8 +33,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             grainState.State.KeyExt = "Should not get updated";
 
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
             GrainStorageContext<EntityWithIntegerKey>.ConfigureEntryState(
                 entry => entry
@@ -41,8 +42,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                     .IsModified = true
             );
 
-            await _storage.WriteStateAsync(typeof(GrainWithIntegerKey).FullName,
-            grainRef,
+            await _storage.WriteStateAsync(typeof(EntityWithIntegerKey).FullName,
+            grainId,
             grainState);
 
 
@@ -55,8 +56,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
 
             GrainStorageContext<EntityWithIntegerKey>.Clear();
             // Future updates should update the whole object if not configured
-            await _storage.WriteStateAsync(typeof(GrainWithIntegerKey).FullName,
-                grainRef,
+            await _storage.WriteStateAsync(typeof(EntityWithIntegerKey).FullName,
+                grainId,
                 grainState);
 
             stored = (EntityWithIntegerKey)

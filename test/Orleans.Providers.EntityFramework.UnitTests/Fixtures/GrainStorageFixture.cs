@@ -7,12 +7,12 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Orleans;
 using Orleans.Providers.EntityFramework.Conventions;
 using Orleans.Providers.EntityFramework.Extensions;
 using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
-using Orleans.Runtime;
 using Orleans.Storage;
 
 namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
@@ -39,8 +39,6 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
                     builder.UseInMemoryDatabase(Guid.NewGuid().ToString());
                     builder.EnableSensitiveDataLogging();
                 })
-                // Orleans stuff
-                .AddSingleton<ITypeResolver, TypeResolver>()
                 // Storage
                 .AddEfGrainStorage<TestDbContext>()
                 .AddSingleton<IGrainStorage, EntityFrameworkGrainStorage<TestDbContext>>()
@@ -65,24 +63,27 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
 
         private void ConfigureGrainStorage(IServiceCollection services)
         {
-            services.ConfigureGrainStorageOptions<TestDbContext, ConfiguredGrainWithCustomGuidKey,
+            services.ConfigureGrainStorageOptions<TestDbContext, ConfiguredEntityWithCustomGuidKey,
                     ConfiguredEntityWithCustomGuidKey>(
                     options =>
                     {
                         options
                             .UseKey(entity => entity.CustomKey);
-                    })
-                .ConfigureGrainStorageOptions<TestDbContext, ConfiguredGrainWithCustomGuidKey2,
+                    },
+                    typeof(ConfiguredGrainWithCustomGuidKey).FullName)
+                .ConfigureGrainStorageOptions<TestDbContext, ConfiguredEntityWithCustomGuidKey,
                     ConfiguredEntityWithCustomGuidKey>(
                     options => options
                         .UseKey(entity => entity.CustomKey)
                         .UseKeyExt(entity => entity.CustomKeyExt)
-                )
-                .ConfigureGrainStorageOptions<TestDbContext, InvalidConfiguredGrainWithGuidKey,
+                ,
+                    typeof(ConfiguredGrainWithCustomGuidKey2).FullName)
+                .ConfigureGrainStorageOptions<TestDbContext, InvalidConfiguredEntityWithCustomGuidKey,
                     InvalidConfiguredEntityWithCustomGuidKey>(
                     options => options
                         .UseKey(entity => entity.CustomKey)
-                        .UseKeyExt(entity => entity.CustomKeyExt))
+                        .UseKeyExt(entity => entity.CustomKeyExt),
+                    typeof(InvalidConfiguredGrainWithGuidKey).FullName)
                 .Configure<GrainStorageConventionOptions>(options =>
                 {
                     options.DefaultGrainKeyPropertyName = nameof(EntityWithGuidKey.Id);
@@ -92,17 +93,17 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
 
             // No PreCompilation
             services
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithGuidKeyNoPreCompile, EntityWithGuidKey>(
+                .ConfigureGrainStorageOptions<TestDbContext, EntityWithGuidKey>(
                     options => options.PreCompileReadQuery(false))
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithGuidCompoundKeyNoPreCompile, EntityWithGuidCompoundKey>(
+                .ConfigureGrainStorageOptions<TestDbContext, EntityWithGuidCompoundKey>(
                     options => options.PreCompileReadQuery(false))
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithIntegerKeyNoPreCompile, EntityWithIntegerKey>(
+                .ConfigureGrainStorageOptions<TestDbContext, EntityWithIntegerKey>(
                     options => options.PreCompileReadQuery(false))
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithIntegerCompoundKeyNoPreCompile, EntityWithIntegerCompoundKey>(
+                .ConfigureGrainStorageOptions<TestDbContext, EntityWithIntegerCompoundKey>(
                     options => options.PreCompileReadQuery(false))
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithStringKeyNoPreCompile, EntityWithStringKey>(
+                .ConfigureGrainStorageOptions<TestDbContext, EntityWithStringKey>(
                     options => options.PreCompileReadQuery(false))
-                .ConfigureGrainStorageOptions<TestDbContext, GrainWithCustomStateGuidKeyNoPreCompile, GrainStateWrapper<EntityWithGuidKey>>(
+                .ConfigureGrainStorageOptions<TestDbContext, GrainStateWrapper<EntityWithGuidKey>>(
                     options => options.PreCompileReadQuery(false))
                 ;
 
@@ -111,10 +112,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
 
     public class TestEntityTypeResolver : EntityTypeResolver
     {
-        public override Type ResolveEntityType(string grainType, IGrainState grainState)
+        public override Type ResolveEntityType(Type stateType)
         {
-            Type stateType = ResolveStateType(grainType, grainState);
-
             if (stateType == typeof(GrainStateWrapper<EntityWithGuidKey>))
                 return typeof(EntityWithGuidKey);
 
@@ -130,30 +129,37 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
         {
         }
 
-        public override Func<IGrainState, TEntity> GetGetterFunc<TGrainState, TEntity>()
+        public override Func<IGrainState<TState>, TEntity> GetGetterFunc<TState, TEntity>()
         {
-            if (typeof(TGrainState) == typeof(GrainStateWrapper<TEntity>))
+            if (typeof(TState) == typeof(GrainStateWrapper<TEntity>))
                 return state =>
                     (state.State as GrainStateWrapper<TEntity>)?.Value;
 
             return stat => stat.State as TEntity;
         }
 
-        public override Action<IGrainState, TEntity> GetSetterFunc<TGrainState, TEntity>()
+        public override Action<IGrainState<TState>, TEntity> GetSetterFunc<TState, TEntity>()
         {
-            if (typeof(TGrainState) == typeof(GrainStateWrapper<TEntity>))
+            if (typeof(TState) == typeof(GrainStateWrapper<TEntity>))
                 return (state, entity) =>
                 {
                     if (state.State is GrainStateWrapper<TEntity> wrapper)
                         wrapper.Value = entity;
                     else
-                        state.State = new GrainStateWrapper<TEntity>()
+                        state.State = (TState)(object)new GrainStateWrapper<TEntity>
                         {
                             Value = entity
                         };
                 };
 
-            return (state, entity) => state.State = entity;
+            return (state, entity) =>
+            {
+                if (entity is TState typed)
+                    state.State = typed;
+                else
+                    throw new InvalidOperationException(
+                        $"State type \"{typeof(TState).FullName}\" is not assignable from \"{typeof(TEntity).FullName}\".");
+            };
         }
     }
 }

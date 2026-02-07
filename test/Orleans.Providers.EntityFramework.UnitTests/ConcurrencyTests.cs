@@ -7,6 +7,7 @@ using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 using Orleans.Storage;
+using Orleans.Runtime;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -29,11 +30,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<EntityWithIntegerKeyWithEtag> grainState =
                 Internal.Utils.CreateAndStoreGrainState<EntityWithIntegerKeyWithEtag>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
-            await _storage.ReadStateAsync(typeof(GrainWithIntegerKeyWithEtag).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
                 grainState);
 
             string expected = BitConverter.ToString(grainState.State.ETag)
@@ -49,8 +50,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<EntityWithIntegerKeyWithEtag> grainState =
                 Internal.Utils.CreateAndStoreGrainState<EntityWithIntegerKeyWithEtag>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
             // update the database
             EntityWithIntegerKeyWithEtag clone = grainState.State.Clone();
@@ -65,8 +66,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             // This should fail
             grainState.State.Title = "Failing Update";
             await Assert.ThrowsAsync<InconsistentStateException>(() =>
-                _storage.WriteStateAsync(typeof(GrainWithIntegerKeyWithEtag).FullName,
-                    grainRef,
+                _storage.WriteStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                    grainId,
                     grainState));
         }
 
@@ -76,13 +77,13 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<EntityWithIntegerKeyWithEtag> grainState =
                 Internal.Utils.CreateAndStoreGrainState<EntityWithIntegerKeyWithEtag>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
             grainState.State.Title = "Updated";
 
-            await _storage.WriteStateAsync(typeof(GrainWithIntegerKeyWithEtag).FullName,
-                grainRef,
+            await _storage.WriteStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
                 grainState);
 
             string expected = BitConverter.ToString(grainState.State.ETag)
@@ -97,11 +98,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<EntityWithIntegerKeyWithEtag> grainState =
                 new TestGrainState<EntityWithIntegerKeyWithEtag>();
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create<GrainWithIntegerKeyWithEtag>(0);
+            GrainId grainId
+                = TestGrainId.Create<GrainWithIntegerKeyWithEtag>(0);
 
-            await _storage.ReadStateAsync(typeof(GrainWithIntegerKeyWithEtag).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
                 grainState);
 
             Assert.Null(grainState.ETag);
@@ -117,11 +118,11 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                     ETag = null
                 });
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
-            await _storage.ReadStateAsync(typeof(GrainWithIntegerKeyWithEtag).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(EntityWithIntegerKeyWithEtag).FullName,
+                grainId,
                 grainState);
 
             Assert.Null(grainState.ETag);

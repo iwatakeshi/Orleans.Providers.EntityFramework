@@ -8,6 +8,7 @@ using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
 using Orleans.Storage;
+using Orleans.Runtime;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -70,13 +71,13 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 State = state
             };
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(entity);
+            GrainId grainId
+                = TestGrainId.Create(entity);
 
             grainState.State = null;
 
-            await _storage.ReadStateAsync(typeof(GrainWithCustomStateGuidKey).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(GrainStateWrapper<EntityWithGuidKey>).FullName,
+                grainId,
                 grainState
             );
 
@@ -132,13 +133,13 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 State = state
             };
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(entity);
+            GrainId grainId
+                = TestGrainId.Create(entity);
 
             grainState.State = null;
 
-            await _storage.ReadStateAsync(typeof(GrainWithCustomStateGuidKeyNoPreCompile).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(GrainStateWrapper<EntityWithGuidKey>).FullName,
+                grainId,
                 grainState
             );
 
@@ -154,13 +155,13 @@ namespace Orleans.Providers.EntityFramework.UnitTests
         {
             TestGrainState<TState> grainState = Internal.Utils.CreateAndStoreGrainState<TState>(_serviceProvider);
 
-            TestGrainReference grainRef
-                = TestGrainReference.Create(grainState.State);
+            GrainId grainId
+                = TestGrainId.Create(grainState.State);
 
             grainState.State = null;
 
-            await _storage.ReadStateAsync(typeof(TGrain).FullName,
-                grainRef,
+            await _storage.ReadStateAsync(typeof(TState).FullName,
+                grainId,
                 grainState
             );
 
