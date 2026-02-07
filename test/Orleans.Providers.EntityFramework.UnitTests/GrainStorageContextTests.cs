@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Orleans.Providers.EntityFramework.UnitTests.Fixtures;
-using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
-using Orleans.Storage;
 using Orleans.Runtime;
+using Orleans.Storage;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests
@@ -28,10 +27,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             TestGrainState<EntityWithIntegerKey> grainState =
                 Internal.Utils.CreateAndStoreGrainState<EntityWithIntegerKey>(_serviceProvider);
 
-
             grainState.State.Title = "Should get updated";
             grainState.State.KeyExt = "Should not get updated";
-
 
             GrainId grainId
                 = TestGrainId.Create(grainState.State);
@@ -43,9 +40,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             );
 
             await _storage.WriteStateAsync(typeof(EntityWithIntegerKey).FullName,
-            grainId,
-            grainState);
-
+                grainId,
+                grainState);
 
             var stored = (EntityWithIntegerKey)
                 Internal.Utils.FetchEntityFromDb(_serviceProvider, grainState.State);
@@ -53,8 +49,8 @@ namespace Orleans.Providers.EntityFramework.UnitTests
             Assert.Equal("Should get updated", stored?.Title);
             Assert.NotEqual("Should not get updated", stored?.KeyExt);
 
-
             GrainStorageContext<EntityWithIntegerKey>.Clear();
+
             // Future updates should update the whole object if not configured
             await _storage.WriteStateAsync(typeof(EntityWithIntegerKey).FullName,
                 grainId,
@@ -64,8 +60,6 @@ namespace Orleans.Providers.EntityFramework.UnitTests
                 Internal.Utils.FetchEntityFromDb(_serviceProvider, grainState.State);
 
             Assert.Equal(stored, grainState.State);
-
-
         }
     }
 }

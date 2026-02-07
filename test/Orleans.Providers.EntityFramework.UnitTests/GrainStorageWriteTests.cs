@@ -4,8 +4,8 @@ using Orleans.Providers.EntityFramework.UnitTests.Fixtures;
 using Orleans.Providers.EntityFramework.UnitTests.Grains;
 using Orleans.Providers.EntityFramework.UnitTests.Internal;
 using Orleans.Providers.EntityFramework.UnitTests.Models;
-using Orleans.Storage;
 using Orleans.Runtime;
+using Orleans.Storage;
 using Xunit;
 
 namespace Orleans.Providers.EntityFramework.UnitTests

@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -41,7 +37,6 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Fixtures
                 })
                 // Storage
                 .AddEfGrainStorage<TestDbContext>()
-                .AddSingleton<IGrainStorage, EntityFrameworkGrainStorage<TestDbContext>>()
                 .AddSingleton<IGrainStorageConvention, TestGrainStorageConvention>()
                 .AddSingleton<IEntityTypeResolver, TestEntityTypeResolver>();
 

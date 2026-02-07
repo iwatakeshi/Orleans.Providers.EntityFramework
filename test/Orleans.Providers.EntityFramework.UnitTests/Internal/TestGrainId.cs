@@ -8,24 +8,15 @@ namespace Orleans.Providers.EntityFramework.UnitTests.Internal
 {
     public static class TestGrainId
     {
-        public static GrainId Create<TKey>(Entity<TKey> state)
+        public static GrainId Create<TKey>(Entity<TKey> state) => state switch
         {
-            switch (state)
-            {
-                case EntityWithGuidKey g:
-                    return Create<GrainWithGuidKey>(g.Id);
-                case EntityWithGuidCompoundKey g:
-                    return Create<GrainWithGuidCompoundKey>(g.Id, g.KeyExt);
-                case EntityWithIntegerKey g:
-                    return Create<GrainWithIntegerKey>(g.Id);
-                case EntityWithIntegerCompoundKey g:
-                    return Create<GrainWithIntegerCompoundKey>(g.Id, g.KeyExt);
-                case EntityWithStringKey g:
-                    return Create<GrainWithStringKey>(g.Id);
-            }
-
-            throw new Exception($"Unexpected type {state.GetType().Name}.");
-        }
+            EntityWithGuidKey g => Create<GrainWithGuidKey>(g.Id),
+            EntityWithGuidCompoundKey g => Create<GrainWithGuidCompoundKey>(g.Id, g.KeyExt),
+            EntityWithIntegerKey g => Create<GrainWithIntegerKey>(g.Id),
+            EntityWithIntegerCompoundKey g => Create<GrainWithIntegerCompoundKey>(g.Id, g.KeyExt),
+            EntityWithStringKey g => Create<GrainWithStringKey>(g.Id),
+            _ => throw new ArgumentException($"Unexpected type {state.GetType().Name}.", nameof(state))
+        };
 
         public static GrainId Create<TGrain>(Guid guid)
             where TGrain : IGrainWithGuidKey
