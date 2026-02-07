@@ -7,6 +7,12 @@ using Orleans.Storage;
 
 namespace Orleans.Providers.EntityFramework;
 
+/// <summary>
+/// Entity Framework Core implementation of <see cref="IGrainStorage"/>.
+/// </summary>
+/// <typeparam name="TContext">The DbContext type.</typeparam>
+/// <param name="serviceProvider">The service provider.</param>
+/// <param name="entityTypeResolver">The entity type resolver.</param>
 public class EntityFrameworkGrainStorage<TContext>(
     IServiceProvider serviceProvider,
     IEntityTypeResolver entityTypeResolver) : IGrainStorage
@@ -14,18 +20,21 @@ public class EntityFrameworkGrainStorage<TContext>(
 {
     private readonly ConcurrentDictionary<StateStorageKey, IGrainStorage> _storage = new();
 
+    /// <inheritdoc />
     public Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         IGrainStorage storage = GetOrCreateStorage(stateName, grainState);
         return storage.ReadStateAsync(stateName, grainId, grainState);
     }
 
+    /// <inheritdoc />
     public Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         IGrainStorage storage = GetOrCreateStorage(stateName, grainState);
         return storage.WriteStateAsync(stateName, grainId, grainState);
     }
 
+    /// <inheritdoc />
     public Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         IGrainStorage storage = GetOrCreateStorage(stateName, grainState);

@@ -9,6 +9,12 @@ using Orleans.Storage;
 
 namespace Orleans.Providers.EntityFramework;
 
+/// <summary>
+/// Default grain storage implementation that bridges Orleans state with Entity Framework.
+/// </summary>
+/// <typeparam name="TContext">The DbContext type.</typeparam>
+/// <typeparam name="TState">The grain state type.</typeparam>
+/// <typeparam name="TEntity">The entity type.</typeparam>
 internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
     where TContext : DbContext
     where TState : class
@@ -20,6 +26,11 @@ internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
     private readonly IServiceProvider _serviceProvider;
     private readonly IGrainStateEntryConfigurator<TContext, TEntity> _entryConfigurator;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GrainStorage{TContext,TState,TEntity}"/> class.
+    /// </summary>
+    /// <param name="stateName">The grain state name.</param>
+    /// <param name="serviceProvider">The service provider.</param>
     public GrainStorage(string stateName, IServiceProvider serviceProvider)
     {
         ArgumentNullException.ThrowIfNull(stateName);
@@ -35,6 +46,7 @@ internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
         _options = GetOrCreateDefaultOptions(stateName);
     }
 
+    /// <inheritdoc />
     public Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         if (grainState is not IGrainState<TState> typedState)
@@ -43,6 +55,7 @@ internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
         return ReadStateAsync(stateName, grainId, typedState);
     }
 
+    /// <inheritdoc />
     public Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         if (grainState is not IGrainState<TState> typedState)
@@ -51,6 +64,7 @@ internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
         return WriteStateAsync(stateName, grainId, typedState);
     }
 
+    /// <inheritdoc />
     public Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
         if (grainState is not IGrainState<TState> typedState)

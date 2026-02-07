@@ -6,18 +6,32 @@ using Orleans.Providers.EntityFramework.Exceptions;
 
 namespace Orleans.Providers.EntityFramework;
 
+/// <summary>
+/// Post-configures grain storage options using conventions and defaults.
+/// </summary>
+/// <typeparam name="TContext">The DbContext type.</typeparam>
+/// <typeparam name="TState">The grain state type.</typeparam>
+/// <typeparam name="TEntity">The entity type.</typeparam>
+/// <param name="serviceProvider">The service provider.</param>
 public class GrainStoragePostConfigureOptions<TContext, TState, TEntity>(IServiceProvider serviceProvider)
     : IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>
     where TContext : DbContext
     where TState : class
     where TEntity : class
 {
+    /// <summary>
+    /// Gets the type-specific convention, if registered.
+    /// </summary>
     public IGrainStorageConvention<TContext, TState, TEntity>? Convention { get; } =
         serviceProvider.GetService<IGrainStorageConvention<TContext, TState, TEntity>>();
 
+    /// <summary>
+    /// Gets the default convention.
+    /// </summary>
     public IGrainStorageConvention DefaultConvention { get; } =
         serviceProvider.GetRequiredService<IGrainStorageConvention>();
 
+    /// <inheritdoc />
     public void PostConfigure(string? name, GrainStorageOptions<TContext, TState, TEntity> options)
     {
         options.IsPersistedFunc ??= DefaultConvention.CreateIsPersistedFunc<TEntity>(options);

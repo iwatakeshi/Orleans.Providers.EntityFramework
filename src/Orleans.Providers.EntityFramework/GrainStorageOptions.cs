@@ -5,6 +5,9 @@ using Orleans.Runtime;
 
 namespace Orleans.Providers.EntityFramework;
 
+/// <summary>
+/// Base options for Entity Framework grain storage.
+/// </summary>
 public abstract class GrainStorageOptions
 {
     internal string? KeyPropertyName { get; set; }
@@ -23,6 +26,9 @@ public abstract class GrainStorageOptions
 
     internal Type? ETagType { get; set; }
 
+    /// <summary>
+    /// Gets or sets a boolean that indicates if the storage provider should use ETags.
+    /// </summary>
     public bool ShouldUseETag { get; set; }
 
     internal bool IsConfigured { get; set; }
@@ -30,6 +36,12 @@ public abstract class GrainStorageOptions
     internal bool PreCompileReadQuery { get; set; } = true;
 }
 
+/// <summary>
+/// Options for Entity Framework grain storage.
+/// </summary>
+/// <typeparam name="TContext">The DbContext type.</typeparam>
+/// <typeparam name="TState">The grain state type.</typeparam>
+/// <typeparam name="TEntity">The entity type.</typeparam>
 public class GrainStorageOptions<TContext, TState, TEntity> : GrainStorageOptions
     where TContext : DbContext
     where TEntity : class

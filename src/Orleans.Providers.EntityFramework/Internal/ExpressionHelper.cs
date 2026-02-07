@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Orleans.Providers.EntityFramework.Internal;
 
+/// <summary>
+/// Helpers for building query expressions used by grain storage.
+/// </summary>
 public static class ExpressionHelper
 {
     private static MethodInfo GetSingleOrDefaultAsyncMethod()
@@ -24,6 +27,15 @@ public static class ExpressionHelper
                 mi.GetParameters()[1].ParameterType.IsGenericType &&
                 mi.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(Expression<>));
 
+    /// <summary>
+    /// Creates an async query that fetches a single entity by key.
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type.</typeparam>
+    /// <typeparam name="TState">The grain state type.</typeparam>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <returns>The query function.</returns>
     public static Func<TContext, TKey, Task<TEntity>> CreateQuery<TContext, TState, TEntity, TKey>(
         GrainStorageOptions<TContext, TState, TEntity> options)
         where TContext : DbContext
@@ -54,6 +66,15 @@ public static class ExpressionHelper
         return lambdaExpression.Compile();
     }
 
+    /// <summary>
+    /// Creates an async query that fetches a single entity by key and key extension.
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type.</typeparam>
+    /// <typeparam name="TState">The grain state type.</typeparam>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <returns>The query function.</returns>
     public static Func<TContext, TKey, string, Task<TEntity>> CreateCompoundQuery<TContext, TState, TEntity, TKey>(
         GrainStorageOptions<TContext, TState, TEntity> options)
         where TContext : DbContext
@@ -90,6 +111,15 @@ public static class ExpressionHelper
         return lambdaExpression.Compile();
     }
 
+    /// <summary>
+    /// Creates a compiled async query that fetches a single entity by key.
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type.</typeparam>
+    /// <typeparam name="TState">The grain state type.</typeparam>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <returns>The compiled query function.</returns>
     public static Func<TContext, TKey, Task<TEntity>> CreateCompiledQuery<TContext, TState, TEntity, TKey>(
         GrainStorageOptions<TContext, TState, TEntity> options)
         where TContext : DbContext
@@ -115,6 +145,14 @@ public static class ExpressionHelper
         return EF.CompileAsyncQuery(lambdaExpression);
     }
 
+    /// <summary>
+    /// Creates a predicate expression that matches the entity key to a grain key.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <param name="grainKeyParameter">The grain key parameter expression.</param>
+    /// <returns>The predicate expression.</returns>
     public static Expression<Func<TEntity, bool>> CreateKeyPredicate<TEntity, TKey>(
         GrainStorageOptions options,
         ParameterExpression grainKeyParameter)
@@ -126,6 +164,15 @@ public static class ExpressionHelper
         return Expression.Lambda<Func<TEntity, bool>>(equals, stateParam);
     }
 
+    /// <summary>
+    /// Creates a compiled async query that fetches a single entity by key and key extension.
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type.</typeparam>
+    /// <typeparam name="TState">The grain state type.</typeparam>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <returns>The compiled query function.</returns>
     public static Func<TContext, TKey, string, Task<TEntity>> CreateCompiledCompoundQuery<TContext, TState, TEntity, TKey>(
         GrainStorageOptions<TContext, TState, TEntity> options)
         where TContext : DbContext
@@ -153,6 +200,15 @@ public static class ExpressionHelper
         return EF.CompileAsyncQuery(lambdaExpression);
     }
 
+    /// <summary>
+    /// Creates a predicate expression that matches the entity key and key extension.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="options">The storage options.</param>
+    /// <param name="grainKeyParam">The grain key parameter expression.</param>
+    /// <param name="grainKeyExtParam">The grain key extension parameter expression.</param>
+    /// <returns>The predicate expression.</returns>
     public static Expression<Func<TEntity, bool>> CreateCompoundKeyPredicate<TEntity, TKey>(
         GrainStorageOptions options,
         ParameterExpression grainKeyParam,

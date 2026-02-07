@@ -11,12 +11,18 @@ using Orleans.Runtime;
 
 namespace Orleans.Providers.EntityFramework.Conventions;
 
+/// <summary>
+/// Default implementation of grain storage conventions for Entity Framework.
+/// </summary>
+/// <param name="options">The convention options.</param>
+/// <param name="serviceScopeFactory">The service scope factory.</param>
 public class GrainStorageConvention(
     IOptions<GrainStorageConventionOptions> options,
     IServiceScopeFactory serviceScopeFactory) : IGrainStorageConvention
 {
     private readonly GrainStorageConventionOptions _options = options.Value;
 
+    /// <inheritdoc />
     public virtual Action<IGrainState<TState>, TEntity> GetSetterFunc<TState, TEntity>() where TEntity : class
     {
         return (state, entity) =>
@@ -29,11 +35,13 @@ public class GrainStorageConvention(
         };
     }
 
+    /// <inheritdoc />
     public virtual Func<IGrainState<TState>, TEntity> GetGetterFunc<TState, TEntity>() where TEntity : class
     {
         return state => (state.State as TEntity)!;
     }
 
+    /// <inheritdoc />
     public virtual Func<TContext, IQueryable<TEntity>> CreateDefaultDbSetAccessorFunc<TContext, TEntity>()
         where TContext : DbContext
         where TEntity : class
@@ -67,6 +75,14 @@ public class GrainStorageConvention(
             noTrackingMethodInfo);
     }
 
+    /// <summary>
+    /// Applies AsNoTracking to the query.
+    /// </summary>
+    /// <typeparam name="TContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <param name="func">The query function.</param>
+    /// <param name="context">The DbContext.</param>
+    /// <returns>Query as no tracking.</returns>
     public static IQueryable<TEntity> AsNoTracking<TContext, TEntity>(
         Func<TContext, IQueryable<TEntity>> func,
         TContext context)
@@ -74,6 +90,7 @@ public class GrainStorageConvention(
         where TEntity : class
         => func(context).AsNoTracking();
 
+    /// <inheritdoc />
     public virtual Func<TContext, GrainId, Task<TEntity>>
         CreateDefaultReadStateFunc<TContext, TState, TEntity>(
             GrainStorageOptions<TContext, TState, TEntity> options)
@@ -138,6 +155,7 @@ public class GrainStorageConvention(
         };
     }
 
+    /// <inheritdoc />
     public virtual Func<TContext, GrainId, Task<TEntity>>
         CreatePreCompiledDefaultReadStateFunc<TContext, TState, TEntity>(
             GrainStorageOptions<TContext, TState, TEntity> options)
@@ -201,6 +219,7 @@ public class GrainStorageConvention(
             return stringQuery(context, stringKey);
         };
     }
+    /// <inheritdoc />
 
     public virtual void SetDefaultKeySelectors<TContext, TState, TEntity>(
         GrainStorageOptions<TContext, TState, TEntity> options)
@@ -280,9 +299,7 @@ public class GrainStorageConvention(
         return Encoding.UTF8.GetString(grainId.Key.AsSpan());
     }
 
-    /// <summary>
-    /// Creates a method that tests the value of the Id property to default of its type.
-    /// </summary>
+    /// <inheritdoc />
     public virtual Func<TEntity, bool> CreateIsPersistedFunc<TEntity>(GrainStorageOptions options)
         where TEntity : class
     {
@@ -308,16 +325,32 @@ public class GrainStorageConvention(
                 methodInfo.MakeGenericMethod(typeof(TEntity), idProperty.PropertyType));
     }
 
+    /// <summary>
+    /// Checks if the value type property is not default.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TProperty">The property type.</typeparam>
+    /// <param name="propertyInfo">The property info.</param>
+    /// <param name="state">The entity instance.</param>
+    /// <returns>True when the property value is not the default.</returns>
     public static bool IsNotDefaultValueType<TEntity, TProperty>(
         PropertyInfo propertyInfo, TEntity state)
         where TProperty : struct
         => !((TProperty)propertyInfo.GetValue(state)!).Equals(default(TProperty));
 
+    /// <summary>
+    /// Checks if the reference type property is not default.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type.</typeparam>
+    /// <typeparam name="TProperty">The property type.</typeparam>
+    /// <param name="propertyInfo">The property info.</param>
+    /// <param name="state">The entity instance.</param>
+    /// <returns>True when the property value is not the default.</returns>
     public static bool IsNotDefaultReferenceType<TEntity, TProperty>(
         PropertyInfo propertyInfo, TEntity state)
         where TProperty : class
         => !((TProperty)propertyInfo.GetValue(state)!).Equals(default(TProperty));
-
+    /// <inheritdoc />
     public virtual void FindAndConfigureETag<TContext, TState, TEntity>(
         GrainStorageOptions<TContext, TState, TEntity> options,
         bool throwIfNotFound)
@@ -339,6 +372,7 @@ public class GrainStorageConvention(
                 $"Could not find a valid ETag property on type \"{typeof(TEntity).FullName}\".");
     }
 
+    /// <inheritdoc />
     public virtual void ConfigureETag<TContext, TState, TEntity>(
         string propertyName,
         GrainStorageOptions<TContext, TState, TEntity> options)

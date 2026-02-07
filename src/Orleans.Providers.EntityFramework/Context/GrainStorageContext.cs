@@ -3,7 +3,7 @@
 /// <summary>
 /// An async local context to apply modifications to current behavior of write and clear operations.
 /// </summary>
-/// <typeparam name="TEntity"></typeparam>
+/// <typeparam name="TEntity">The entity type.</typeparam>
 public static class GrainStorageContext<TEntity>
     where TEntity : class
 {
@@ -29,6 +29,9 @@ public static class GrainStorageContext<TEntity>
         IsConfiguredLocal.Value = true;
     }
 
+    /// <summary>
+    /// Clears the configured entry state override for the current async context.
+    /// </summary>
     public static void Clear()
     {
         ConfigureStateDelegateLocal.Value = null;
