@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Orleans.Providers.EntityFramework
 {
-    public class DefaultGrainStateEntryConfigurator<TContext, TGrain, TEntity>
-        : IGrainStateEntryConfigurator<TContext, TGrain, TEntity>
+    public class DefaultGrainStateEntryConfigurator<TContext, TEntity>
+        : IGrainStateEntryConfigurator<TContext, TEntity>
         where TContext : DbContext
         where TEntity : class
     {

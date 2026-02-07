@@ -7,33 +7,29 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Orleans.Providers.EntityFramework.Conventions;
 using Orleans.Providers.EntityFramework.Exceptions;
-using Orleans.Runtime;
+using Orleans;
 
 namespace Orleans.Providers.EntityFramework
 {
-    public class GrainStoragePostConfigureOptions<TContext, TGrain, TGrainState, TEntity>
-        : IPostConfigureOptions<GrainStorageOptions<TContext, TGrain, TEntity>>
+    public class GrainStoragePostConfigureOptions<TContext, TState, TEntity>
+        : IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>
         where TContext : DbContext
-        where TGrain : Grain<TGrainState>
-        where TGrainState : new()
+        where TState : class
         where TEntity : class
     {
-        public IGrainStorageConvention<TContext, TGrain, TEntity> Convention { get; }
+        public IGrainStorageConvention<TContext, TState, TEntity> Convention { get; }
         public IGrainStorageConvention DefaultConvention { get; }
 
         public GrainStoragePostConfigureOptions(IServiceProvider serviceProvider)
         {
             DefaultConvention =
                 (IGrainStorageConvention)serviceProvider.GetRequiredService(typeof(IGrainStorageConvention));
-            Convention = (IGrainStorageConvention<TContext, TGrain, TEntity>)
-                serviceProvider.GetService(typeof(IGrainStorageConvention<TContext, TGrain, TEntity>));
+            Convention = (IGrainStorageConvention<TContext, TState, TEntity>)
+                serviceProvider.GetService(typeof(IGrainStorageConvention<TContext, TState, TEntity>));
         }
 
-        public void PostConfigure(string name, GrainStorageOptions<TContext, TGrain, TEntity> options)
+        public void PostConfigure(string name, GrainStorageOptions<TContext, TState, TEntity> options)
         {
-            if (!string.Equals(name, typeof(TGrain).FullName))
-                throw new Exception("Post configure on wrong grain type.");
-
             if (options.IsPersistedFunc == null)
                 options.IsPersistedFunc =
                     DefaultConvention.CreateIsPersistedFunc<TEntity>(options);
@@ -75,12 +71,12 @@ namespace Orleans.Providers.EntityFramework
             if (options.SetEntity == null)
                 options.SetEntity =
                     Convention?.GetSetterFunc()
-                    ?? DefaultConvention.GetSetterFunc<TGrainState, TEntity>();
+                    ?? DefaultConvention.GetSetterFunc<TState, TEntity>();
 
             if (options.GetEntity == null)
                 options.GetEntity =
                     Convention?.GetGetterFunc()
-                    ?? DefaultConvention.GetGetterFunc<TGrainState, TEntity>();
+                    ?? DefaultConvention.GetGetterFunc<TState, TEntity>();
 
             DefaultConvention.FindAndConfigureETag(options, options.ShouldUseETag);
 

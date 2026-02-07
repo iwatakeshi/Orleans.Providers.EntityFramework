@@ -11,55 +11,51 @@ namespace Orleans.Providers.EntityFramework.Extensions
 {
     public static class GrainStorageServiceCollectionExtensions
     {
-        public static IServiceCollection ConfigureGrainStorageOptions<TContext, TGrain, TEntity>(
+        public static IServiceCollection ConfigureGrainStorageOptions<TContext, TState, TEntity>(
             this IServiceCollection services,
-            Action<GrainStorageOptions<TContext, TGrain, TEntity>> configureOptions = null)
+            Action<GrainStorageOptions<TContext, TState, TEntity>> configureOptions = null,
+            string stateName = null)
             where TContext : DbContext
-            where TGrain : Grain<TEntity>
-            where TEntity : class, new()
+            where TState : class
+            where TEntity : class
         {
+            string optionsName = stateName ?? typeof(TState).FullName;
+
             return services
-                .AddSingleton<IPostConfigureOptions<GrainStorageOptions<TContext, TGrain, TEntity>>,
-                    GrainStoragePostConfigureOptions<TContext, TGrain, TEntity, TEntity>>()
-                .Configure<GrainStorageOptions<TContext, TGrain, TEntity>>(typeof(TGrain).FullName, options =>
+                .AddSingleton<IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>,
+                    GrainStoragePostConfigureOptions<TContext, TState, TEntity>>()
+                .Configure<GrainStorageOptions<TContext, TState, TEntity>>(optionsName, options =>
                 {
                     configureOptions?.Invoke(options);
                 });
         }
 
-        public static IServiceCollection ConfigureGrainStorageOptions<TContext, TGrain, TGrainState, TEntity>(
+        public static IServiceCollection ConfigureGrainStorageOptions<TContext, TState>(
             this IServiceCollection services,
-            Action<GrainStorageOptions<TContext, TGrain, TEntity>> configureOptions = null)
+            Action<GrainStorageOptions<TContext, TState, TState>> configureOptions = null,
+            string stateName = null)
             where TContext : DbContext
-            where TGrain : Grain<TGrainState>
-            where TGrainState : new()
-            where TEntity : class
+            where TState : class
         {
-            return services
-                .AddSingleton<IPostConfigureOptions<GrainStorageOptions<TContext, TGrain, TEntity>>,
-                    GrainStoragePostConfigureOptions<TContext, TGrain, TGrainState, TEntity>>()
-                .Configure<GrainStorageOptions<TContext, TGrain, TEntity>>(typeof(TGrain).FullName, options =>
-                {
-                    configureOptions?.Invoke(options);
-                });
+            return services.ConfigureGrainStorageOptions<TContext, TState, TState>(configureOptions, stateName);
         }
 
         public static IServiceCollection AddEfGrainStorage<TContext>(
             this IServiceCollection services,
-            string providerName = ProviderConstants.DEFAULT_STORAGE_PROVIDER_NAME)
+            string providerName = StorageProviderConstants.DefaultStorageProviderName)
             where TContext : DbContext
         {
             services.TryAddSingleton(typeof(IEntityTypeResolver), typeof(EntityTypeResolver));
             services.TryAddSingleton(typeof(IGrainStorageConvention), typeof(GrainStorageConvention));
-            services.TryAddSingleton(typeof(IGrainStateEntryConfigurator<,,>),
-                typeof(DefaultGrainStateEntryConfigurator<,,>));
+            services.TryAddSingleton(typeof(IGrainStateEntryConfigurator<,>),
+                typeof(DefaultGrainStateEntryConfigurator<,>));
             services.AddSingleton(typeof(EntityFrameworkGrainStorage<TContext>));
 
             services.TryAddSingleton<IGrainStorage>(sp =>
-                sp.GetServiceByName<IGrainStorage>(ProviderConstants.DEFAULT_STORAGE_PROVIDER_NAME));
+                sp.GetRequiredKeyedService<IGrainStorage>(StorageProviderConstants.DefaultStorageProviderName));
 
-            services.AddSingletonNamedService<IGrainStorage>(providerName,
-                (sp, name) => sp.GetRequiredService<EntityFrameworkGrainStorage<TContext>>());
+            services.AddKeyedSingleton<IGrainStorage>(providerName,
+                (sp, key) => sp.GetRequiredService<EntityFrameworkGrainStorage<TContext>>());
 
             return services;
         }

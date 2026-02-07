@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Orleans;
 using Orleans.Providers.EntityFramework.Exceptions;
 using Orleans.Runtime;
 using Orleans.Storage;
@@ -15,72 +15,102 @@ namespace Orleans.Providers.EntityFramework
         where TContext : DbContext
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly ITypeResolver _typeResolver;
         private readonly IEntityTypeResolver _entityTypeResolver;
 
-        private readonly ConcurrentDictionary<string, IGrainStorage> _storage
-            = new ConcurrentDictionary<string, IGrainStorage>();
+        private readonly ConcurrentDictionary<StateStorageKey, IGrainStorage> _storage
+            = new ConcurrentDictionary<StateStorageKey, IGrainStorage>();
 
         public EntityFrameworkGrainStorage(
             IServiceProvider serviceProvider,
-            ITypeResolver typeResolver,
             IEntityTypeResolver entityTypeResolver)
         {
             _serviceProvider = serviceProvider;
             _entityTypeResolver = entityTypeResolver;
-            _typeResolver = typeResolver;
         }
 
-        public Task ReadStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        public Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
         {
-            if (!_storage.TryGetValue(grainType, out IGrainStorage storage))
-                storage = CreateStorage(grainType, grainState);
+            Type stateType = grainState.State?.GetType() ?? typeof(T);
+            var key = new StateStorageKey(stateName, stateType);
 
-            return storage.ReadStateAsync(grainType, grainReference, grainState);
+            if (!_storage.TryGetValue(key, out IGrainStorage storage))
+                storage = CreateStorage(stateName, stateType);
+
+            return storage.ReadStateAsync(stateName, grainId, grainState);
         }
 
-        public Task WriteStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        public Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
         {
-            if (!_storage.TryGetValue(grainType, out IGrainStorage storage))
-                storage = CreateStorage(grainType, grainState);
+            Type stateType = grainState.State?.GetType() ?? typeof(T);
+            var key = new StateStorageKey(stateName, stateType);
 
-            return storage.WriteStateAsync(grainType, grainReference, grainState);
+            if (!_storage.TryGetValue(key, out IGrainStorage storage))
+                storage = CreateStorage(stateName, stateType);
+
+            return storage.WriteStateAsync(stateName, grainId, grainState);
         }
 
-        public Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        public Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
         {
-            if (!_storage.TryGetValue(grainType, out IGrainStorage storage))
-                storage = CreateStorage(grainType, grainState);
+            Type stateType = grainState.State?.GetType() ?? typeof(T);
+            var key = new StateStorageKey(stateName, stateType);
 
-            return storage.ClearStateAsync(grainType, grainReference, grainState);
+            if (!_storage.TryGetValue(key, out IGrainStorage storage))
+                storage = CreateStorage(stateName, stateType);
+
+            return storage.ClearStateAsync(stateName, grainId, grainState);
         }
 
-        private IGrainStorage CreateStorage(
-            string grainType
-            , IGrainState grainState)
+        private IGrainStorage CreateStorage(string stateName, Type stateType)
         {
-            Type grainImplType = _typeResolver.ResolveType(grainType);
-            Type stateType = _entityTypeResolver.ResolveStateType(grainType, grainState);
-            Type entityType = _entityTypeResolver.ResolveEntityType(grainType, grainState);
+            if (stateType == null) throw new ArgumentNullException(nameof(stateType));
 
-            Type storageType = typeof(GrainStorage<,,,>)
-                .MakeGenericType(typeof(TContext),
-                    grainImplType, stateType, entityType);
+            Type entityType = _entityTypeResolver.ResolveEntityType(stateType);
+
+            Type storageType = typeof(GrainStorage<,,>)
+                .MakeGenericType(typeof(TContext), stateType, entityType);
 
             IGrainStorage storage;
 
             try
             {
-                storage = (IGrainStorage)Activator.CreateInstance(storageType, grainType, _serviceProvider);
+                storage = (IGrainStorage)Activator.CreateInstance(storageType, stateName, _serviceProvider);
             }
             catch (Exception e) when (e.InnerException is GrainStorageConfigurationException)
             {
                 throw e.InnerException;
             }
 
-
-            _storage.TryAdd(grainType, storage);
+            _storage.TryAdd(new StateStorageKey(stateName, stateType), storage);
             return storage;
+        }
+
+        private readonly struct StateStorageKey : IEquatable<StateStorageKey>
+        {
+            public StateStorageKey(string stateName, Type stateType)
+            {
+                StateName = stateName ?? string.Empty;
+                StateType = stateType ?? throw new ArgumentNullException(nameof(stateType));
+            }
+
+            public string StateName { get; }
+
+            public Type StateType { get; }
+
+            public bool Equals(StateStorageKey other)
+            {
+                return StringComparer.Ordinal.Equals(StateName, other.StateName) && StateType == other.StateType;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is StateStorageKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(StringComparer.Ordinal.GetHashCode(StateName), StateType);
+            }
         }
     }
 }

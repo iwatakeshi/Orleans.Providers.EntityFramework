@@ -3,6 +3,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Orleans;
 using Orleans.Runtime;
 
 namespace Orleans.Providers.EntityFramework.Conventions
@@ -21,20 +22,20 @@ namespace Orleans.Providers.EntityFramework.Conventions
             where TContext : DbContext
             where TEntity : class;
 
-        Func<TContext, IAddressable, Task<TEntity>>
-            CreateDefaultReadStateFunc<TContext, TGrain, TEntity>(
-                GrainStorageOptions<TContext, TGrain, TEntity> options)
+        Func<TContext, GrainId, Task<TEntity>>
+            CreateDefaultReadStateFunc<TContext, TState, TEntity>(
+                GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class;
 
-        Func<TContext, IAddressable, Task<TEntity>>
-            CreatePreCompiledDefaultReadStateFunc<TContext, TGrain, TEntity>(
-                GrainStorageOptions<TContext, TGrain, TEntity> options)
+        Func<TContext, GrainId, Task<TEntity>>
+            CreatePreCompiledDefaultReadStateFunc<TContext, TState, TEntity>(
+                GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class;
 
-        void SetDefaultKeySelectors<TContext, TGrain, TEntity>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+        void SetDefaultKeySelectors<TContext, TState, TEntity>(
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class;
 
@@ -57,9 +58,9 @@ namespace Orleans.Providers.EntityFramework.Conventions
         /// <param name="throwIfNotFound">Indicates if failure of finding an ETag property should throw</param>
         /// <typeparam name="TContext"></typeparam>
         /// <typeparam name="TEntity"></typeparam>
-        /// <typeparam name="TGrain"></typeparam>
-        void FindAndConfigureETag<TContext, TGrain, TEntity>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options,
+        /// <typeparam name="TState"></typeparam>
+        void FindAndConfigureETag<TContext, TState, TEntity>(
+            GrainStorageOptions<TContext, TState, TEntity> options,
             bool throwIfNotFound)
             where TContext : DbContext
             where TEntity : class;
@@ -71,30 +72,30 @@ namespace Orleans.Providers.EntityFramework.Conventions
         /// <param name="options"></param>
         /// <typeparam name="TContext"></typeparam>
         /// <typeparam name="TEntity"></typeparam>
-        /// <typeparam name="TGrain"></typeparam>
-        void ConfigureETag<TContext, TGrain, TEntity>(
+        /// <typeparam name="TState"></typeparam>
+        void ConfigureETag<TContext, TState, TEntity>(
             string propertyName,
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class;
 
-        Action<IGrainState, TEntity> GetSetterFunc<TGrainState, TEntity>()
+        Action<IGrainState<TState>, TEntity> GetSetterFunc<TState, TEntity>()
             where TEntity : class;
 
-        Func<IGrainState, TEntity> GetGetterFunc<TGrainState, TEntity>()
+        Func<IGrainState<TState>, TEntity> GetGetterFunc<TState, TEntity>()
             where TEntity : class;
     }
 
-    public interface IGrainStorageConvention<TContext, TGrain, TEntity>
+    public interface IGrainStorageConvention<TContext, TState, TEntity>
         where TContext : DbContext
         where TEntity : class
     {
         /// <summary>
-        /// Creates a method that returns an IQueryable'<typeparam name="TGrainState"></typeparam>
+        /// Creates a method that returns an IQueryable'<typeparam name="TEntity"></typeparam>
         ///  against <typeparam name="TContext"></typeparam> type.
         /// </summary>
         /// <typeparam name="TContext"></typeparam>
-        /// <typeparam name="TGrainState"></typeparam>
+        /// <typeparam name="TEntity"></typeparam>
         /// <returns></returns>
         Func<TContext, IQueryable<TEntity>>
             CreateDefaultDbSetAccessorFunc();
@@ -103,20 +104,20 @@ namespace Orleans.Providers.EntityFramework.Conventions
         /// Creates a method that generates an expression to be used by entity framework to 
         /// fetch a single state.
         /// </summary>
-        /// <typeparam name="TGrainState">Type of grain state</typeparam>
+        /// <typeparam name="TEntity">Type of grain state</typeparam>
         /// <returns></returns>
-        Func<IAddressable, Expression<Func<TEntity, bool>>>
+        Func<GrainId, Expression<Func<TEntity, bool>>>
             CreateGrainStateQueryExpressionGeneratorFunc();
 
-        Func<TContext, IAddressable, Task<TEntity>> CreateDefaultReadStateFunc();
+        Func<TContext, GrainId, Task<TEntity>> CreateDefaultReadStateFunc();
 
-        Func<TContext, IAddressable, Task<TEntity>> CreatePreCompiledDefaultReadStateFunc(
-             GrainStorageOptions<TContext, TGrain, TEntity> options);
+        Func<TContext, GrainId, Task<TEntity>> CreatePreCompiledDefaultReadStateFunc(
+             GrainStorageOptions<TContext, TState, TEntity> options);
 
-        void SetDefaultKeySelector(GrainStorageOptions<TContext, TGrain, TEntity> options);
+        void SetDefaultKeySelector(GrainStorageOptions<TContext, TState, TEntity> options);
 
-        Action<IGrainState, TEntity> GetSetterFunc();
+        Action<IGrainState<TState>, TEntity> GetSetterFunc();
 
-        Func<IGrainState, TEntity> GetGetterFunc();
+        Func<IGrainState<TState>, TEntity> GetGetterFunc();
     }
 }

@@ -8,57 +8,82 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Orleans;
 using Orleans.Runtime;
 using Orleans.Storage;
 
 namespace Orleans.Providers.EntityFramework
 {
-    internal class GrainStorage<TContext, TGrain, TGrainState, TEntity> : IGrainStorage
+    internal class GrainStorage<TContext, TState, TEntity> : IGrainStorage
         where TContext : DbContext
-        where TGrain : Grain<TGrainState>
-        where TGrainState : class, new()
+        where TState : class
         where TEntity : class
     {
-        private readonly GrainStorageOptions<TContext, TGrain, TEntity> _options;
+        private readonly GrainStorageOptions<TContext, TState, TEntity> _options;
         private readonly IServiceScopeFactory _scopeFactory;
-        private readonly ILogger<GrainStorage<TContext, TGrain, TGrainState, TEntity>> _logger;
+        private readonly ILogger<GrainStorage<TContext, TState, TEntity>> _logger;
         private readonly IServiceProvider _serviceProvider;
-        private readonly IGrainStateEntryConfigurator<TContext, TGrain, TEntity> _entryConfigurator;
+        private readonly IGrainStateEntryConfigurator<TContext, TEntity> _entryConfigurator;
 
-        public GrainStorage(string grainType, IServiceProvider serviceProvider)
+        public GrainStorage(string stateName, IServiceProvider serviceProvider)
         {
-            if (grainType == null) throw new ArgumentNullException(nameof(grainType));
+            if (stateName == null) throw new ArgumentNullException(nameof(stateName));
 
             _serviceProvider = serviceProvider
                                ?? throw new ArgumentNullException(nameof(serviceProvider));
 
-            _entryConfigurator = (IGrainStateEntryConfigurator<TContext, TGrain, TEntity>)serviceProvider.GetRequiredService(
-                typeof(IGrainStateEntryConfigurator<TContext, TGrain, TEntity>));
+            _entryConfigurator = (IGrainStateEntryConfigurator<TContext, TEntity>)serviceProvider.GetRequiredService(
+                typeof(IGrainStateEntryConfigurator<TContext, TEntity>));
 
             var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
-            _logger = loggerFactory?.CreateLogger<GrainStorage<TContext, TGrain, TGrainState, TEntity>>()
-                      ?? NullLogger<GrainStorage<TContext, TGrain, TGrainState, TEntity>>.Instance;
+            _logger = loggerFactory?.CreateLogger<GrainStorage<TContext, TState, TEntity>>()
+                      ?? NullLogger<GrainStorage<TContext, TState, TEntity>>.Instance;
 
             _scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
-            _options = GetOrCreateDefaultOptions(grainType);
+            _options = GetOrCreateDefaultOptions(stateName);
         }
 
-        public async Task ReadStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        public Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
+        {
+            if (grainState is not IGrainState<TState> typedState)
+                throw new ArgumentException($"Unexpected grain state type {typeof(T).FullName}.", nameof(grainState));
+
+            return ReadStateAsync(stateName, grainId, typedState);
+        }
+
+        public Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
+        {
+            if (grainState is not IGrainState<TState> typedState)
+                throw new ArgumentException($"Unexpected grain state type {typeof(T).FullName}.", nameof(grainState));
+
+            return WriteStateAsync(stateName, grainId, typedState);
+        }
+
+        public Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
+        {
+            if (grainState is not IGrainState<TState> typedState)
+                throw new ArgumentException($"Unexpected grain state type {typeof(T).FullName}.", nameof(grainState));
+
+            return ClearStateAsync(stateName, grainId, typedState);
+        }
+
+        private async Task ReadStateAsync(string stateName, GrainId grainId, IGrainState<TState> grainState)
         {
             using (IServiceScope scope = _scopeFactory.CreateScope())
             using (var context = scope.ServiceProvider.GetRequiredService<TContext>())
             {
-                TEntity entity = await _options.ReadStateAsync(context, grainReference)
+                TEntity entity = await _options.ReadStateAsync(context, grainId)
                     .ConfigureAwait(false);
 
                 _options.SetEntity(grainState, entity);
+                grainState.RecordExists = entity != null;
 
                 if (entity != null && _options.CheckForETag)
                     grainState.ETag = _options.GetETagFunc(entity);
             }
         }
 
-        public async Task WriteStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        private async Task WriteStateAsync(string stateName, GrainId grainId, IGrainState<TState> grainState)
         {
             TEntity entity = _options.GetEntity(grainState);
 
@@ -87,6 +112,7 @@ namespace Orleans.Providers.EntityFramework
                     await context.SaveChangesAsync()
                         .ConfigureAwait(false);
 
+                    grainState.RecordExists = true;
                     if (_options.CheckForETag)
                         grainState.ETag = _options.GetETagFunc(entity);
                 }
@@ -104,45 +130,59 @@ namespace Orleans.Providers.EntityFramework
             }
         }
 
-        public async Task ClearStateAsync(string grainType, GrainReference grainReference, IGrainState grainState)
+        private async Task ClearStateAsync(string stateName, GrainId grainId, IGrainState<TState> grainState)
         {
             TEntity entity = _options.GetEntity(grainState);
             using (IServiceScope scope = _scopeFactory.CreateScope())
             using (var context = scope.ServiceProvider.GetRequiredService<TContext>())
             {
-                context.Remove(entity);
-                await context.SaveChangesAsync()
-                    .ConfigureAwait(false);
+                if (entity != null)
+                {
+                    context.Remove(entity);
+                    await context.SaveChangesAsync()
+                        .ConfigureAwait(false);
+                }
+
+                grainState.RecordExists = false;
+                grainState.ETag = null;
             }
         }
 
 
-        private GrainStorageOptions<TContext, TGrain, TEntity> GetOrCreateDefaultOptions(string grainType)
+        private GrainStorageOptions<TContext, TState, TEntity> GetOrCreateDefaultOptions(string stateName)
         {
             var options
-                = _serviceProvider.GetOptionsByName<GrainStorageOptions<TContext, TGrain, TEntity>>(grainType);
+                = _serviceProvider.GetOptionsByName<GrainStorageOptions<TContext, TState, TEntity>>(stateName);
 
             if (options.IsConfigured)
                 return options;
 
+            string fallbackName = typeof(TState).FullName;
+            if (!string.IsNullOrWhiteSpace(fallbackName) && !string.Equals(stateName, fallbackName, StringComparison.Ordinal))
+            {
+                var fallbackOptions
+                    = _serviceProvider.GetOptionsByName<GrainStorageOptions<TContext, TState, TEntity>>(fallbackName);
+                if (fallbackOptions.IsConfigured)
+                    return fallbackOptions;
+            }
+
             // Try generating a default options for the grain
 
-            Type optionsType = typeof(GrainStoragePostConfigureOptions<,,,>)
+            Type optionsType = typeof(GrainStoragePostConfigureOptions<,,>)
                 .MakeGenericType(
                     typeof(TContext),
-                    typeof(TGrain),
-                    typeof(TGrainState),
+                    typeof(TState),
                     typeof(TEntity));
 
-            var postConfigure = (IPostConfigureOptions<GrainStorageOptions<TContext, TGrain, TEntity>>)
+            var postConfigure = (IPostConfigureOptions<GrainStorageOptions<TContext, TState, TEntity>>)
                 Activator.CreateInstance(optionsType, _serviceProvider);
 
-            postConfigure.PostConfigure(grainType, options);
+            postConfigure.PostConfigure(stateName, options);
 
-            _logger.LogInformation($"GrainStorageOptions is not configured for grain {grainType} " +
+            _logger.LogInformation($"GrainStorageOptions is not configured for state {stateName} " +
                                    "and default options will be used. If default configuration is not desired, " +
-                                   "consider configuring options for grain using " +
-                                   "using IServiceCollection.ConfigureGrainStorageOptions<TContext, TGrain, TState> extension method.");
+                                   "consider configuring options for state using " +
+                                   "IServiceCollection.ConfigureGrainStorageOptions<TContext, TState, TEntity> extension method.");
 
             return options;
         }

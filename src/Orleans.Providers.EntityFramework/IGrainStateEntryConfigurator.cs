@@ -2,7 +2,7 @@
 
 namespace Orleans.Providers.EntityFramework
 {
-    public interface IGrainStateEntryConfigurator<TContext, TGrain, TEntity>
+    public interface IGrainStateEntryConfigurator<TContext, TEntity>
         where TContext : DbContext
         where TEntity : class
     {

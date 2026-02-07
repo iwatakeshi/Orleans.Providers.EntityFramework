@@ -10,21 +10,21 @@ namespace Orleans.Providers.EntityFramework.Extensions
 {
     public static class GrainStorageOptionsExtensions
     {
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseQuery<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Func<TContext, IQueryable<TGrainState>> queryFunc)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseQuery<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Func<TContext, IQueryable<TEntity>> queryFunc)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             options.DbSetAccessor = queryFunc;
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> ConfigureIsPersisted<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Func<TGrainState, bool> isPersistedFunc)
+        public static GrainStorageOptions<TContext, TState, TEntity> ConfigureIsPersisted<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Func<TEntity, bool> isPersistedFunc)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             options.IsPersistedFunc = isPersistedFunc;
             return options;
@@ -36,16 +36,16 @@ namespace Orleans.Providers.EntityFramework.Extensions
         /// Default is to precompile.
         /// </summary>
         /// <typeparam name="TContext"></typeparam>
-        /// <typeparam name="TGrain"></typeparam>
-        /// <typeparam name="TGrainState"></typeparam>
+        /// <typeparam name="TState"></typeparam>
+        /// <typeparam name="TEntity"></typeparam>
         /// <param name="options"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> PreCompileReadQuery<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
+        public static GrainStorageOptions<TContext, TState, TEntity> PreCompileReadQuery<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
             bool value = true)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             options.PreCompileReadQuery = value;
             return options;
@@ -56,16 +56,16 @@ namespace Orleans.Providers.EntityFramework.Extensions
         /// Overrides the default implementation used to query grain state from database.
         /// </summary>
         /// <typeparam name="TContext"></typeparam>
-        /// <typeparam name="TGrainState"></typeparam>
-        /// <typeparam name="TGrain"></typeparam>
+        /// <typeparam name="TEntity"></typeparam>
+        /// <typeparam name="TState"></typeparam>
         /// <param name="options"></param>
         /// <param name="readStateAsyncFunc"></param>
         /// <returns></returns>
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> ConfigureReadState<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Func<TContext, IAddressable, Task<TGrainState>> readStateAsyncFunc)
+        public static GrainStorageOptions<TContext, TState, TEntity> ConfigureReadState<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Func<TContext, GrainId, Task<TEntity>> readStateAsyncFunc)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
 
@@ -79,24 +79,24 @@ namespace Orleans.Providers.EntityFramework.Extensions
         /// If no valid properties were found on the entity and exception would be thrown.
         /// </summary>
         /// <typeparam name="TContext"></typeparam>
-        /// <typeparam name="TGrainState"></typeparam>
-        /// <typeparam name="TGrain"></typeparam>
+        /// <typeparam name="TEntity"></typeparam>
+        /// <typeparam name="TState"></typeparam>
         /// <param name="options"></param>
         /// <returns></returns>
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseETag<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseETag<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             options.ShouldUseETag = true;
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseETag<TContext, TGrain, TGrainState, TProperty>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, TProperty>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseETag<TContext, TState, TEntity, TProperty>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, TProperty>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -111,11 +111,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseETag<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
+        public static GrainStorageOptions<TContext, TState, TEntity> UseETag<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
             string propertyName)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (propertyName == null) throw new ArgumentNullException(nameof(propertyName));
@@ -126,11 +126,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKey<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, Guid>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKey<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, Guid>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -144,11 +144,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKey<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, long>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKey<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, long>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -162,11 +162,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKey<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, string>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKey<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, string>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -180,11 +180,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKey<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKey<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
             string propertyName)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (propertyName == null) throw new ArgumentNullException(nameof(propertyName));
@@ -194,11 +194,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKeyExt<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, string>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKeyExt<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, string>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -212,11 +212,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> UseKeyExt<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
+        public static GrainStorageOptions<TContext, TState, TEntity> UseKeyExt<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
             string propertyName)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (propertyName == null) throw new ArgumentNullException(nameof(propertyName));
@@ -226,11 +226,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> CheckPersistenceOn<TContext, TGrain, TGrainState, TProperty>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
-            Expression<Func<TGrainState, TProperty>> expression)
+        public static GrainStorageOptions<TContext, TState, TEntity> CheckPersistenceOn<TContext, TState, TEntity, TProperty>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
+            Expression<Func<TEntity, TProperty>> expression)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (expression == null) throw new ArgumentNullException(nameof(expression));
@@ -244,11 +244,11 @@ namespace Orleans.Providers.EntityFramework.Extensions
             return options;
         }
 
-        public static GrainStorageOptions<TContext, TGrain, TGrainState> CheckPersistenceOn<TContext, TGrain, TGrainState>(
-            this GrainStorageOptions<TContext, TGrain, TGrainState> options,
+        public static GrainStorageOptions<TContext, TState, TEntity> CheckPersistenceOn<TContext, TState, TEntity>(
+            this GrainStorageOptions<TContext, TState, TEntity> options,
             string propertyName)
             where TContext : DbContext
-            where TGrainState : class
+            where TEntity : class
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (propertyName == null) throw new ArgumentNullException(nameof(propertyName));

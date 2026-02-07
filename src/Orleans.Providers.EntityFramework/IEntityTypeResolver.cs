@@ -4,7 +4,7 @@ namespace Orleans.Providers.EntityFramework
 {
     public interface IEntityTypeResolver
     {
-        Type ResolveEntityType(string grainType, IGrainState grainState);
-        Type ResolveStateType(string grainType, IGrainState grainState);
+        Type ResolveEntityType(Type stateType);
+        Type ResolveStateType(Type stateType);
     }
 }

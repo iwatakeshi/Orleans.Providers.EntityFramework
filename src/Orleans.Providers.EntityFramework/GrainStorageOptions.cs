@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Orleans;
 using Orleans.Runtime;
 
 namespace Orleans.Providers.EntityFramework
@@ -33,7 +34,7 @@ namespace Orleans.Providers.EntityFramework
         internal bool PreCompileReadQuery { get; set; } = true;
     }
 
-    public class GrainStorageOptions<TContext, TGrain, TEntity> : GrainStorageOptions
+    public class GrainStorageOptions<TContext, TState, TEntity> : GrainStorageOptions
         where TContext : DbContext
         where TEntity : class
     {
@@ -49,10 +50,10 @@ namespace Orleans.Providers.EntityFramework
 
         internal Func<TEntity, long> LongKeySelector { get; set; }
 
-        internal Func<TContext, IAddressable, Task<TEntity>> ReadStateAsync { get; set; }
+        internal Func<TContext, GrainId, Task<TEntity>> ReadStateAsync { get; set; }
 
-        internal Action<IGrainState, TEntity> SetEntity { get; set; }
+        internal Action<IGrainState<TState>, TEntity> SetEntity { get; set; }
 
-        internal Func<IGrainState, TEntity> GetEntity { get; set; }
+        internal Func<IGrainState<TState>, TEntity> GetEntity { get; set; }
     }
 }

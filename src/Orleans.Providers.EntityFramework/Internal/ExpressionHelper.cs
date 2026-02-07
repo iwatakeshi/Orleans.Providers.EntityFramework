@@ -9,8 +9,8 @@ namespace Orleans.Providers.EntityFramework.Internal
 {
     public static class ExpressionHelper
     {
-        public static Func<TContext, TKey, Task<TEntity>> CreateQuery<TContext, TGrain, TEntity, TKey>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+        public static Func<TContext, TKey, Task<TEntity>> CreateQuery<TContext, TState, TEntity, TKey>(
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class
         {
@@ -45,8 +45,8 @@ namespace Orleans.Providers.EntityFramework.Internal
             return lambdaExpression.Compile();
         }
 
-        public static Func<TContext, TKey, string, Task<TEntity>> CreateCompoundQuery<TContext, TGrain, TEntity, TKey>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+        public static Func<TContext, TKey, string, Task<TEntity>> CreateCompoundQuery<TContext, TState, TEntity, TKey>(
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class
         {
@@ -89,8 +89,8 @@ namespace Orleans.Providers.EntityFramework.Internal
         }
 
 
-        public static Func<TContext, TKey, Task<TEntity>> CreateCompiledQuery<TContext, TGrain, TEntity, TKey>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+        public static Func<TContext, TKey, Task<TEntity>> CreateCompiledQuery<TContext, TState, TEntity, TKey>(
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class
         {
@@ -128,9 +128,9 @@ namespace Orleans.Providers.EntityFramework.Internal
             return Expression.Lambda<Func<TEntity, bool>>(equals, stateParam);
         }
 
-        public static Func<TContext, TKey, string, Task<TEntity>> CreateCompiledCompoundQuery<TContext, TGrain,
+        public static Func<TContext, TKey, string, Task<TEntity>> CreateCompiledCompoundQuery<TContext, TState,
             TEntity, TKey>(
-            GrainStorageOptions<TContext, TGrain, TEntity> options)
+            GrainStorageOptions<TContext, TState, TEntity> options)
             where TContext : DbContext
             where TEntity : class
         {

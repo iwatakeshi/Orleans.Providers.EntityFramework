@@ -4,17 +4,16 @@ namespace Orleans.Providers.EntityFramework
 {
     public class EntityTypeResolver : IEntityTypeResolver
     {
-        public virtual Type ResolveEntityType(string grainType, IGrainState grainState)
+        public virtual Type ResolveEntityType(Type stateType)
         {
-            return ResolveStateType(grainType, grainState);
+            return ResolveStateType(stateType);
         }
 
-        public virtual Type ResolveStateType(string grainType, IGrainState grainState)
+        public virtual Type ResolveStateType(Type stateType)
         {
-            // todo: hack, the declared type of the grain state is only accessible like so
-            return grainState.GetType().IsGenericType
-                ? grainState.GetType().GenericTypeArguments[0]
-                : grainState.State.GetType();
+            if (stateType == null) throw new ArgumentNullException(nameof(stateType));
+
+            return stateType;
         }
     }
 }
