@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Orleans.Providers.EntityFramework.Conventions;
-using Orleans.Runtime;
+using Orleans.Runtime.Hosting;
 using Orleans.Storage;
 
 namespace Orleans.Providers.EntityFramework.Extensions;
@@ -48,10 +48,9 @@ public static class GrainStorageServiceCollectionExtensions
             typeof(DefaultGrainStateEntryConfigurator<,>));
         services.AddSingleton(typeof(EntityFrameworkGrainStorage<TContext>));
 
-        services.TryAddSingleton<IGrainStorage>(sp =>
-            sp.GetRequiredKeyedService<IGrainStorage>(StorageProviderConstants.DefaultStorageProviderName));
-
-        services.AddKeyedSingleton<IGrainStorage>(providerName,
+        // Use Orleans's AddGrainStorage helper for proper named provider registration.
+        // This handles keyed DI, default provider fallback, and ILifecycleParticipant auto-registration.
+        services.AddGrainStorage(providerName,
             (sp, _) => sp.GetRequiredService<EntityFrameworkGrainStorage<TContext>>());
 
         return services;

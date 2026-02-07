@@ -1,7 +1,6 @@
-namespace Orleans.Providers.EntityFramework
+namespace Orleans.Providers.EntityFramework;
+
+internal static class StorageProviderConstants
 {
-  internal static class StorageProviderConstants
-  {
     public const string DefaultStorageProviderName = "Default";
-  }
 }

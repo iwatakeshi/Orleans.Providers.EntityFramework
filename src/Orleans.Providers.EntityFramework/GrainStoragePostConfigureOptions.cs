@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Orleans.Providers.EntityFramework.Conventions;
+using Orleans.Providers.EntityFramework.Exceptions;
 
 namespace Orleans.Providers.EntityFramework;
 
@@ -52,8 +53,40 @@ public class GrainStoragePostConfigureOptions<TContext, TState, TEntity>(IServic
 
         DefaultConvention.FindAndConfigureETag(options, options.ShouldUseETag);
 
-        // TODO: Validate options
+        ValidateOptions(options, name);
 
         options.IsConfigured = true;
+    }
+
+    private static void ValidateOptions(GrainStorageOptions<TContext, TState, TEntity> options, string? name)
+    {
+        string displayName = name ?? typeof(TState).FullName ?? typeof(TState).Name;
+
+        if (options.ReadStateAsync is null)
+            throw new GrainStorageConfigurationException(
+                $"ReadStateAsync delegate is not configured for grain storage '{displayName}'.");
+
+        if (options.SetEntity is null)
+            throw new GrainStorageConfigurationException(
+                $"SetEntity delegate is not configured for grain storage '{displayName}'.");
+
+        if (options.GetEntity is null)
+            throw new GrainStorageConfigurationException(
+                $"GetEntity delegate is not configured for grain storage '{displayName}'.");
+
+        if (options.IsPersistedFunc is null)
+            throw new GrainStorageConfigurationException(
+                $"IsPersistedFunc delegate is not configured for grain storage '{displayName}'.");
+
+        if (options.CheckForETag)
+        {
+            if (options.GetETagFunc is null)
+                throw new GrainStorageConfigurationException(
+                    $"ETag is enabled but GetETagFunc is not configured for grain storage '{displayName}'.");
+
+            if (options.ConvertETagObjectToStringFunc is null)
+                throw new GrainStorageConfigurationException(
+                    $"ETag is enabled but ConvertETagObjectToStringFunc is not configured for grain storage '{displayName}'.");
+        }
     }
 }
